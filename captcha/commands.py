@@ -30,9 +30,7 @@ from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
 
 from ._tagscript import TagscriptConverter
-from .abc import CompositeMetaClass, MixinMeta
-from .objects import CaptchaVerifyButton
-
+from .abc import CompositeMetaClass, MixinMeta, CaptchaVerifyButton
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     @commands.guild_only()
