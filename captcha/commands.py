@@ -73,6 +73,22 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the captcha verification channel to {channel.name} ({channel.id})."
         )
 
+    @_captcha.command(name="unverifiedrole")
+    async def _unverifiedrole(self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None):
+        """
+        Configure the role for users before captcha verification.
+    
+        Run without a role to clear the setting.
+        """
+        if role is None:
+            await self.config.guild(ctx.guild).role_before_captcha.clear()
+            await ctx.send("Cleared the unverified role.")
+            return
+        await self.config.guild(ctx.guild).role_before_captcha.set(role.id)
+        await ctx.send(
+            f"Configured the unverified role to {role.name} ({role.id}).",
+        )
+
     @_captcha.command(name="role")
     async def _role(self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None):
         """
