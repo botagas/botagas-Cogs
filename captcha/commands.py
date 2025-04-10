@@ -31,6 +31,7 @@ from redbot.core.utils.views import ConfirmView
 
 from ._tagscript import TagscriptConverter
 from .abc import CompositeMetaClass, MixinMeta
+from .objects import CaptchaVerifyButton
 
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
