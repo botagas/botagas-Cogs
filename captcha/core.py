@@ -138,39 +138,41 @@ class Captcha(
             else:
                 return guild
 
-    @commands.Cog.listener()
-    async def on_member_join(self, member: discord.Member) -> None:
-        if member.bot:
-            return
-        if await self.bot.cog_disabled_in_guild(self, member.guild):
-            return
-        if not await self.config.guild(member.guild).toggle():
-            return
-        if (
-            not member.guild.me.guild_permissions.kick_members
-            or not member.guild.me.guild_permissions.manage_roles
-            or not member.guild.me.guild_permissions.embed_links
-            or not member.guild.me.guild_permissions.attach_files
-        ):
-            await self.config.guild(member.guild).toggle.set(False)
-            log.info("Disabled captcha verification due to missing permissions.")
-            return
+    class CaptchaVerifyButton(discord.ui.View):
+        def __init__(self, cog: "Captcha", timeout: Optional[float] = None):
+            super().__init__(timeout=timeout)
+            self.cog = cog
+    
+        @discord.ui.button(label="Verify Me", style=discord.ButtonStyle.success, custom_id="captcha_verify")
+        async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
+            member = interaction.user
+    
+            if member.bot:
+                return
+    
+            guild_config = await self.cog.config.guild(interaction.guild).all()
+            channel_id = guild_config["channel"]
+    
+            if not channel_id:
+                return await interaction.response.send_message("Verification channel not configured.", ephemeral=True)
+    
+            channel = interaction.guild.get_channel(channel_id)
+            if not isinstance(channel, discord.TextChannel):
+                return await interaction.response.send_message("Verification channel is invalid.", ephemeral=True)
+    
+            await interaction.response.defer(ephemeral=True)
+            await self.cog.begin_captcha_flow(member, channel)
 
-        if not await self.bot.allowed_by_whitelist_blacklist(member):
-            await member.kick(
-                reason=f"{member.id} failed to complete captcha verification because of being blacklisted by the bot."
-            )
-            return
-
-        verif_channel: int = await self.config.guild(member.guild).channel()
-        if not verif_channel:
-            return
-        channel: discord.TextChannel = member.guild.get_channel(int(verif_channel))  # type: ignore
-
+    async def begin_captcha_flow(self, member: discord.Member, channel: discord.TextChannel):
+    
         self._verification_phase[member.id] = 0
         self._user_tries[member.id] = []
-
-        message_string: str = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+    
+        message_string = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+        captcha = CaptchaObj(self, width=300, height=100)
+        captcha.generate(message_string)
+        captcha.write(message_string, f"{str(self.data_path)}/{member.id}.png")
+        captcha_file = discord.File(f"{str(self.data_path)}/{member.id}.png")
 
         role_before_id: Optional[int] = await self.config.guild(member.guild).role_before_captcha()
         if role_before_id:
@@ -180,12 +182,6 @@ class Captcha(
                     await member.add_roles(role_before, reason="Assigned unverified role on join.")
                 except discord.Forbidden:
                     log.warning(f"Could not assign role_before_captcha to {member.id}")
-
-        captcha: CaptchaObj = CaptchaObj(self, width=300, height=100)
-        captcha.generate(message_string)
-        captcha.write(message_string, f"{str(self.data_path)}/{member.id}.png")
-
-        captcha_file: discord.File = discord.File(f"{str(self.data_path)}/{member.id}.png")
 
         message_before_captcha: str = await self.config.guild(
             member.guild
