@@ -81,6 +81,7 @@ class Captcha(
             "channel": None,
             "timeout": 120,
             "tries": 3,
+            "role_before_captcha": None,
             "role_after_captcha": None,
             "message_before_captcha": message_before_captcha_string,
             "message_after_captcha": message_after_captcha_string,
@@ -170,6 +171,15 @@ class Captcha(
         self._user_tries[member.id] = []
 
         message_string: str = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+
+        role_before_id: Optional[int] = await self.config.guild(member.guild).role_before_captcha()
+        if role_before_id:
+            role_before: Optional[discord.Role] = member.guild.get_role(role_before_id)
+            if role_before:
+                try:
+                    await member.add_roles(role_before, reason="Assigned unverified role on join.")
+                except discord.Forbidden:
+                    log.warning(f"Could not assign role_before_captcha to {member.id}")
 
         captcha: CaptchaObj = CaptchaObj(self, width=300, height=100)
         captcha.generate(message_string)
@@ -262,6 +272,15 @@ class Captcha(
             self._user_tries[member.id].append(temp_success_message)
 
             os.remove(f"{str(self.data_path)}/{member.id}.png")
+
+            role_before_id: Optional[int] = await self.config.guild(member.guild).role_before_captcha()
+            if role_before_id:
+                role_before: Optional[discord.Role] = member.guild.get_role(role_before_id)
+                if role_before:
+                    try:
+                        await member.remove_roles(role_before, reason="Captcha passed, removing unverified role.")
+                    except discord.Forbidden:
+                        log.warning(f"Could not remove role_before_captcha from {member.id}")
 
             role_id: int = await self.config.guild(member.guild).role_after_captcha()
             role: Optional[discord.Role] = discord.utils.get(member.guild.roles, id=role_id)
