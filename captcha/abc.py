@@ -24,7 +24,7 @@ SOFTWARE.
 
 from abc import ABC, ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import discord
 from redbot.core import Config, commands
