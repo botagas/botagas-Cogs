@@ -266,27 +266,26 @@ class Captcha(
             except (discord.Forbidden, discord.HTTPException):
                 log.exception(f"Failed to add roles to {member.id}.", exc_info=True)
 
-async def cleanup_messages():
-    await asyncio.sleep(DELETE_AFTER)
-
-    for user_try in self._user_tries.get(member.id, []):
+    async def cleanup_messages():
+        await asyncio.sleep(DELETE_AFTER)
+    
+        for user_try in self._user_tries.get(member.id, []):
+            try:
+                await user_try.delete()
+            except discord.NotFound:
+                pass
+            except discord.HTTPException as e:
+                log.warning(f"Could not delete message {user_try.id}: {e}")
+    
         try:
-            await user_try.delete()
-        except discord.NotFound:
+            await self._captchas[member.id].delete()
+        except (KeyError, discord.HTTPException):
             pass
-        except discord.HTTPException as e:
-            log.warning(f"Could not delete message {user_try.id}: {e}")
-
-    try:
-        await self._captchas[member.id].delete()
-    except (KeyError, discord.HTTPException):
-        pass
-
-    self._captchas.pop(member.id, None)
-    self._user_tries.pop(member.id, None)
-
-asyncio.create_task(cleanup_messages())
-
+    
+        self._captchas.pop(member.id, None)
+        self._user_tries.pop(member.id, None)
+    
+    asyncio.create_task(cleanup_messages())
 
     @commands.Cog.listener()
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
