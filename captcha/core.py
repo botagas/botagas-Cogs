@@ -220,19 +220,24 @@ class Captcha(
         timeout: int = await self.config.guild(member.guild).timeout()
 
         try:
-
             def check(message: discord.Message) -> bool:
                 return (
                     message.content.upper() == message_string
                     and message.author.id == member.id
                     and message.channel.id == channel.id
                 )
-
-            await self.bot.wait_for(
+        
+            response_message: discord.Message = await self.bot.wait_for(
                 "message",
                 check=check,
                 timeout=timeout,
             )
+        
+            try:
+                await response_message.delete()
+            except discord.HTTPException:
+                pass
+        
         except asyncio.TimeoutError:
             await member.kick(
                 reason=f"{member.id} failed to solve captcha verification in time.",
