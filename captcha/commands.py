@@ -44,6 +44,30 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Manage Captcha settings.
         """
 
+    @_captcha.command(name="deploy")
+    async def _deploy(self, ctx: commands.GuildContext):
+        """
+        Deploy the verification message with a button to the configured channel.
+        """
+        channel_id = await self.config.guild(ctx.guild).channel()
+        if not channel_id:
+            return await ctx.send("Verification channel not configured.")
+    
+        channel = ctx.guild.get_channel(channel_id)
+        if not isinstance(channel, discord.TextChannel):
+            return await ctx.send("Invalid verification channel.")
+    
+        embed = discord.Embed(
+            title="Server Verification",
+            description="Click the button below to begin the verification process.",
+            color=discord.Color.green()
+        )
+    
+        view = CaptchaVerifyButton(self)
+    
+        await channel.send(embed=embed, view=view)
+        await ctx.send("Verification message deployed.")
+    
     @_captcha.command(name="toggle")
     async def _toggle(self, ctx: commands.GuildContext, toggle: bool):
         """
