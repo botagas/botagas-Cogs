@@ -57,8 +57,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             return await ctx.send("Invalid verification channel.")
     
         embed = discord.Embed(
-            title="Server Verification",
-            description="Click the button below to begin the verification process.",
+            description="Click the green button below to verify",
             color=discord.Color.green()
         )
     
