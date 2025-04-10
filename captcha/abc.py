@@ -35,7 +35,7 @@ class CaptchaVerifyButton(discord.ui.View):
         super().__init__(timeout=timeout)
         self.cog = cog
 
-    @discord.ui.button(label="Verify Me", style=discord.ButtonStyle.success, custom_id="captcha_verify")
+    @discord.ui.button(label="Verify", style=discord.ButtonStyle.success, custom_id="captcha_verify")
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
         member = interaction.user
 
