@@ -36,18 +36,21 @@ class Roomer(red_commands.Cog):
         """Roomer configuration."""
 
     @roomer.command(name="enable")
+    @red_commands.has_permissions(administrator=True)
     async def enable(self, ctx: red_commands.Context):
         """Enable automatic voice channel creation."""
         await self.config.guild(ctx.guild).auto_enabled.set(True)
         await ctx.send("Automatic voicechannel creation enabled.")
 
     @roomer.command(name="disable")
+    @red_commands.has_permissions(administrator=True)
     async def disable(self, ctx: red_commands.Context):
         """Disable automatic voice channel creation."""
         await self.config.guild(ctx.guild).auto_enabled.set(False)
         await ctx.send("Automatic voicechannel creation disabled.")
 
     @roomer.command(name="add")
+    @red_commands.has_permissions(administrator=True)
     async def add_channel(self, ctx: red_commands.Context, channel: discord.VoiceChannel):
         """Add a join-to-create channel."""
         channels = await self.config.guild(ctx.guild).auto_channels()
@@ -59,6 +62,7 @@ class Roomer(red_commands.Cog):
             await ctx.send("That channel is already configured.")
 
     @roomer.command(name="remove")
+    @red_commands.has_permissions(administrator=True)
     async def remove_channel(self, ctx: red_commands.Context, channel: discord.VoiceChannel):
         """Remove a join-to-create channel."""
         channels = await self.config.guild(ctx.guild).auto_channels()
@@ -70,12 +74,14 @@ class Roomer(red_commands.Cog):
             await ctx.send("That channel wasn't configured.")
 
     @roomer.command(name="name")
+    @red_commands.has_permissions(administrator=True)
     async def set_name(self, ctx: red_commands.Context, *, name: str):
         """Set the name for auto-created voice channels."""
         await self.config.guild(ctx.guild).name.set(name)
         await ctx.send(f"Voice channels will now be named: **{name}**")
 
     @roomer.command(name="limit")
+    @red_commands.has_permissions(administrator=True)
     async def set_limit(self, ctx: red_commands.Context, limit: int = 0):
         """Set user limit for auto-created voice channels (0 = no limit)."""
         await self.config.guild(ctx.guild).user_limit.set(limit)
