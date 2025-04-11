@@ -31,6 +31,7 @@ class Roomer(red_commands.Cog):
 
     @red_commands.hybrid_group(name="roomer", with_app_command=True)
     @red_commands.guild_only()
+    @red_commands.has_permissions(administrator=True)
     async def roomer(self, ctx: red_commands.Context):
         """Roomer configuration."""
 
