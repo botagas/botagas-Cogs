@@ -122,21 +122,16 @@ class Roomer(red_commands.Cog):
 
         await self.schedule_deletion(new_channel)
 
-    async def cog_command_error(self, ctx, error):
-        if isinstance(error, red_commands.MissingPermissions):
-            await ctx.send("🚫 You do not have permission to use this command.")
+    async def cog_command_error(self, ctx: red_commands.Context, error):
+        if isinstance(error, red_commands.CheckFailure):
+            if ctx.interaction:
+                await ctx.interaction.response.send_message(
+                    "🚫 You do not have permission to use this command.", ephemeral=True
+                )
+            else:
+                await ctx.send("🚫 You do not have permission to use this command.")
         else:
-            raise error  # Re-raise unhandled errors so Redbot can deal with them
-
-    async def cog_app_command_error(
-        self, interaction: discord.Interaction, error: app_commands.AppCommandError
-    ):
-        if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message(
-                "🚫 You do not have permission to use this command.", ephemeral=True
-            )
-        else:
-            raise error
+            raise error  # Let Red handle anything else
 
     async def schedule_deletion(self, channel):
         await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
