@@ -58,7 +58,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     
         embed = discord.Embed(
             description="If above verification is not available, please click the green button below to verify",
-            color=discord.Color(0x46FA7D)  
+            color=discord.Color(34eb83)  
         )
     
         view = CaptchaVerifyButton(self)
