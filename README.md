@@ -9,7 +9,7 @@
 
 
 > [!TIP]
-> For support join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server, and find me [`@Winter`](https://discordapp.com/users/326866295150739457) in my support channel [`#support_botagas-cogs`](https://discord.com/channels/240154543684321280/1166073721056931890).
+> For support join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server, ~~and find me [`@Winter`](https://discordapp.com/users/326866295150739457) in my support channel [`#support_botagas-cogs`](https://discord.com/channels/240154543684321280/1166073721056931890).~~
 
 
 ## Installation
