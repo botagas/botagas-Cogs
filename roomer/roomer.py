@@ -129,25 +129,21 @@ class Roomer(commands.Cog):
     @commands.group()
     async def roomer(self, ctx):
         """Roomer settings"""
-        pass
 
     @commands.guild_only()
     @commands.group()
     async def vc(self, ctx):
         """Voicechannel commands."""
-        pass
 
     @commands.guild_only()
     @commands.group()
     async def tc(self, ctx):
         """Textchannel commands."""
-        pass
 
     # region auto
     @roomer.group()
     async def auto(self, ctx):
         """Automation settings."""
-        pass
 
     @auto.command()
     async def enable(self, ctx):
@@ -184,7 +180,6 @@ class Roomer(commands.Cog):
     @auto.group()
     async def channel(self, ctx):
         """Manage channels related to automated voicechannels."""
-        pass
 
     @channel.command()
     async def add(self, ctx, *, channel: discord.VoiceChannel):
@@ -225,7 +220,6 @@ class Roomer(commands.Cog):
     @roomer.group()
     async def private(self, ctx):
         """Change settings for private rooms"""
-        pass
 
     @private.command(name="enable")
     async def penable(self, ctx):
@@ -384,7 +378,6 @@ class Roomer(commands.Cog):
     @roomer.group()
     async def text(self, ctx):
         """Change settings for private text channels."""
-        pass
 
     @text.command(name="enable")
     async def tc_enable(self, ctx):
