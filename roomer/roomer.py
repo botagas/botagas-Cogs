@@ -1,11 +1,10 @@
-from datetime import timedelta
-
 import discord
 from discord import app_commands
 from discord.ext import commands
 from redbot.core import Config
 from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
+from datetime import timedelta, datetime
 
 _ = Translator("Roomer", __file__)
 
@@ -100,28 +99,27 @@ class Roomer(red_commands.Cog):
         )
         await member.move_to(new_channel, reason="Moved to new voice room")
 
-        # Try sending to the linked text channel if available
-        if new_channel and new_channel.guild:
-            linked_text_channel = discord.utils.get(
-                new_channel.guild.text_channels, id=new_channel.id
+        # Try sending to the linked text chat of the voice channel
+        linked_text_channel = new_channel.guild.get_channel(new_channel.id)
+        if linked_text_channel:
+            await linked_text_channel.send(
+                embed=discord.Embed(
+                    title="🔧 Voice Channel Controls",
+                    description="Use the buttons below to control your channel.",
+                    color=discord.Color.blurple(),
+                ),
+                view=ChannelControlView(new_channel),
             )
-            if linked_text_channel:
-                await linked_text_channel.send(
-                    embed=discord.Embed(
-                        title="🔧 Voice Channel Controls",
-                        description="Use the buttons below to control your channel.",
-                        color=discord.Color.blurple(),
-                    ),
-                    view=ChannelControlView(new_channel),
-                )
 
-        # Schedule deletion when empty
         await self.schedule_deletion(new_channel)
 
     async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
+        await discord.utils.sleep_until(datetime.utcnow() + timedelta(minutes=1))
         if len(channel.members) == 0:
-            await channel.delete(reason="Temporary voice channel expired")
+            try:
+                await channel.delete(reason="Temporary voice channel expired")
+            except discord.NotFound:
+                pass
 
 
 class ChannelControlView(discord.ui.View):
