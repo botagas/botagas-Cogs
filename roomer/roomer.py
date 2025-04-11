@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -100,10 +98,9 @@ class Roomer(red_commands.Cog):
         )
         await member.move_to(new_channel, reason="Moved to new voice room")
 
-        # Try sending to the linked text chat of the voice channel
-        linked_text_channel = new_channel.guild.get_channel(new_channel.id)
-        if linked_text_channel:
-            await linked_text_channel.send(
+        # Send embed to the voice channel's associated text chat
+        try:
+            await new_channel.send(
                 embed=discord.Embed(
                     title="🔧 Voice Channel Controls",
                     description="Use the buttons below to control your channel.",
@@ -111,16 +108,17 @@ class Roomer(red_commands.Cog):
                 ),
                 view=ChannelControlView(new_channel),
             )
+        except Exception:
+            pass
 
         await self.schedule_deletion(new_channel)
 
     async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(datetime.utcnow() + timedelta(minutes=1))
+        await discord.utils.sleep_until(
+            discord.utils.utcnow() + discord.utils.timedelta(minutes=1)
+        )
         if len(channel.members) == 0:
-            try:
-                await channel.delete(reason="Temporary voice channel expired")
-            except discord.NotFound:
-                pass
+            await channel.delete(reason="Temporary voice channel expired")
 
 
 class ChannelControlView(discord.ui.View):
@@ -148,6 +146,11 @@ class ChannelControlView(discord.ui.View):
         modal = RenameModal(self.channel)
         await interaction.response.send_modal(modal)
 
+    @discord.ui.button(label="👥 Set Limit", style=discord.ButtonStyle.secondary)
+    async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = LimitModal(self.channel)
+        await interaction.response.send_modal(modal)
+
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
@@ -163,6 +166,29 @@ class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
         await interaction.response.send_message(
             f"✅ Renamed channel to **{self.name.value}**.", ephemeral=True
         )
+
+
+class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
+    limit = discord.ui.TextInput(
+        label="User Limit (leave blank for unlimited)",
+        placeholder="e.g. 5",
+        required=False,
+        max_length=3
+    )
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            value = int(self.limit.value) if self.limit.value else 0
+            await self.channel.edit(user_limit=value)
+            await interaction.response.send_message(
+                f"✅ User limit set to **{value or 'unlimited'}**.", ephemeral=True
+            )
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
 
 
 async def setup(bot):
