@@ -14,22 +14,22 @@
 
 ## Installation
 
-> Ensure you have downloader loaded.
+Ensure you have downloader loaded.
 ```py
 [p]load downloader
 ```
 
-> Add `botagas-Cogs` to your Red instance.
+Add `botagas-Cogs` to your Red instance.
 ```py
 [p]repo add botagas-Cogs https://github.com/botagas/botagas-Cogs
 ```
 
-> Install cog(s) from `botagas-Cogs` in your Red instance
+Install cog(s) from `botagas-Cogs` in your Red instance
 ```py
 [p]cog install botagas-Cogs <CogName>
 ```
 
-> Load the cog(s).
+Load the cog(s).
 ```py
 [p]load CogName
 ```
