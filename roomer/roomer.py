@@ -114,9 +114,7 @@ class Roomer(red_commands.Cog):
         await self.schedule_deletion(new_channel)
 
     async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(
-            discord.utils.utcnow() + timedelta(minutes=1)
-        )
+        await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
         if len(channel.members) == 0:
             await channel.delete(reason="Temporary voice channel expired")
 
