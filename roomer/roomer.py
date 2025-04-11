@@ -173,7 +173,7 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         label="User Limit (leave blank for unlimited)",
         placeholder="e.g. 5",
         required=False,
-        max_length=3
+        max_length=3,
     )
 
     def __init__(self, channel):
