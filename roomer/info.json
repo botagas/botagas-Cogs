@@ -1,0 +1,21 @@
+{
+  "author": [
+    "Dav"
+  ],
+  "description": "Tools for voicechannels. \n - Automated voicechannel creation \n - Private voicechannels \n - Private textchannels",
+  "hidden": false,
+  "install_msg": "Thanks for using roomer. Check out all settings in `[p]roomer`.",
+  "short": "Tools for voicechannels NEW: Private Text channels",
+  "tags": [
+    "members",
+    "vc",
+    "voicechannel",
+    "textchannel",
+    "automation",
+    "private",
+    "private channels",
+    "tools"
+  ],
+  "end_user_data_statement": "This cog does not store end user data.",
+  "min_bot_version": "3.5.0"
+}
