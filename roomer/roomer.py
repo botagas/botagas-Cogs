@@ -1,20 +1,16 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from redbot.core import Config
-from redbot.core import commands as red_commands
+from redbot.core import Config, commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
 _ = Translator("Roomer", __file__)
 
-
 @cog_i18n(_)
-class Roomer(red_commands.Cog):
+class Roomer(commands.Cog):
     """
     Automatically create temporary voice channels when users join a join-to-create channel.
-    Sends an interactive menu to the voice channel's thread.
     """
-
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=300620201743, force_registration=True)
@@ -33,75 +29,77 @@ class Roomer(red_commands.Cog):
         guild = member.guild
         settings = await self.config.guild(guild).all()
 
-        if not settings["auto_enabled"]:
+        if not settings["auto_enabled"] or after.channel.id not in settings["auto_channels"]:
             return
 
-        if after.channel.id not in settings["auto_channels"]:
-            return
-
-        # Create the temporary voice channel
-        new_channel = await after.channel.category.create_voice_channel(
-            name=settings["name"],
-            user_limit=settings["user_limit"],
+        category = after.channel.category
+        new_channel = await category.create_voice_channel(
+            settings["name"],
             overwrites=after.channel.overwrites,
-            reason="Auto voice channel creation via Roomer.",
+            user_limit=settings["user_limit"] or 0,
+            reason="Auto voice channel creation",
         )
-        await member.move_to(new_channel, reason="Joined auto-created channel")
+        await member.move_to(new_channel, reason="Moved to new voice room")
 
-        # Create thread and send menu
-        thread = await new_channel.create_text_channel(
-            name=f"{member.display_name}'s Room Controls",
-            overwrites={
-                guild.default_role: discord.PermissionOverwrite(view_channel=False),
-                member: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-            },
-            reason="Roomer: text control thread",
-        )
+        # Try sending to the linked text channel if available
+        if new_channel and new_channel.guild:
+            linked_text_channel = discord.utils.get(new_channel.guild.text_channels, id=new_channel.id)
+            if linked_text_channel:
+                await linked_text_channel.send(
+                    embed=discord.Embed(
+                        title="🔧 Voice Channel Controls",
+                        description="Use the buttons below to control your channel.",
+                        color=discord.Color.blurple(),
+                    ),
+                    view=ChannelControlView(new_channel)
+                )
 
-        view = RoomSettingsView(channel=new_channel)
-        await thread.send(
-            content="Welcome! Use the menu below to manage your voice room:", view=view
-        )
+        # Schedule deletion when empty
+        await self.schedule_deletion(new_channel)
+
+    async def schedule_deletion(self, channel):
+        await discord.utils.sleep_until(discord.utils.utcnow() + discord.utils.timedelta(minutes=1))
+        if len(channel.members) == 0:
+            await channel.delete(reason="Temporary voice channel expired")
 
 
-class RoomSettingsView(discord.ui.View):
-    def __init__(self, channel):
+class ChannelControlView(discord.ui.View):
+    def __init__(self, channel: discord.VoiceChannel):
         super().__init__(timeout=None)
         self.channel = channel
 
-    @discord.ui.button(label="Lock Room", style=discord.ButtonStyle.danger, custom_id="lock_room")
+    @discord.ui.button(label="🔒 Lock", style=discord.ButtonStyle.danger)
     async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         overwrites = self.channel.overwrites
-        overwrites[interaction.guild.default_role] = discord.PermissionOverwrite(connect=False)
+        overwrites[self.channel.guild.default_role] = discord.PermissionOverwrite(connect=False)
         await self.channel.edit(overwrites=overwrites)
-        await interaction.response.send_message("Room locked.", ephemeral=True)
+        await interaction.response.send_message("🔒 Channel locked.", ephemeral=True)
 
-    @discord.ui.button(
-        label="Unlock Room", style=discord.ButtonStyle.success, custom_id="unlock_room"
-    )
+    @discord.ui.button(label="🔓 Unlock", style=discord.ButtonStyle.success)
     async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
         overwrites = self.channel.overwrites
-        overwrites[interaction.guild.default_role] = discord.PermissionOverwrite(connect=True)
+        if self.channel.guild.default_role in overwrites:
+            del overwrites[self.channel.guild.default_role]
         await self.channel.edit(overwrites=overwrites)
-        await interaction.response.send_message("Room unlocked.", ephemeral=True)
+        await interaction.response.send_message("🔓 Channel unlocked.", ephemeral=True)
 
-    @discord.ui.button(
-        label="Rename Room", style=discord.ButtonStyle.primary, custom_id="rename_room"
-    )
+    @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = RenameRoomModal(self.channel)
+        modal = RenameModal(self.channel)
         await interaction.response.send_modal(modal)
 
 
-class RenameRoomModal(discord.ui.Modal, title="Rename Voice Room"):
-    new_name = discord.ui.TextInput(label="New name", max_length=100)
+class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
+    name = discord.ui.TextInput(label="New Channel Name", placeholder="Enter name...", max_length=100)
 
     def __init__(self, channel):
         super().__init__()
         self.channel = channel
 
     async def on_submit(self, interaction: discord.Interaction):
-        await self.channel.edit(name=self.new_name.value)
-        await interaction.response.send_message(
-            f"Room renamed to **{self.new_name.value}**.", ephemeral=True
-        )
+        await self.channel.edit(name=self.name.value)
+        await interaction.response.send_message(f"✅ Renamed channel to **{self.name.value}**.", ephemeral=True)
+
+
+async def setup(bot):
+    await bot.add_cog(Roomer(bot))
