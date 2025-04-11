@@ -127,7 +127,7 @@ class Roomer(red_commands.Cog):
             await ctx.send("🚫 You do not have permission to use this command.")
         else:
             raise error  # Re-raise unhandled errors so Redbot can deal with them
-    
+
     async def schedule_deletion(self, channel):
         await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
         if len(channel.members) == 0:
