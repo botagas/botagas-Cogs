@@ -1,19 +1,16 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from redbot.core import Config
-from redbot.core import commands as red_commands
+from redbot.core import Config, commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
 _ = Translator("Roomer", __file__)
 
-
 @cog_i18n(_)
-class Roomer(commands.Cog):
+class Roomer(red_commands.Cog):
     """
     Automatically create temporary voice channels when users join a join-to-create channel.
     """
-
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=300620201743, force_registration=True)
@@ -31,6 +28,7 @@ class Roomer(commands.Cog):
     @red_commands.guild_only()
     async def roomer(self, ctx: red_commands.Context):
         """Roomer configuration."""
+        pass
 
     @roomer.command(name="enable")
     async def enable(self, ctx: red_commands.Context):
@@ -95,15 +93,12 @@ class Roomer(commands.Cog):
                 settings["name"],
                 overwrites=overwrites,
                 user_limit=settings["user_limit"] or 0,
-                reason="Roomer: Auto VC creation.",
+                reason="Roomer: Auto VC creation."
             )
             await member.move_to(new_channel)
 
         if before.channel and before.channel != after.channel:
-            if (
-                before.channel.id not in settings["auto_channels"]
-                and len(before.channel.members) == 0
-            ):
+            if before.channel.id not in settings["auto_channels"] and len(before.channel.members) == 0:
                 if before.channel.name == settings["name"]:
                     try:
                         await before.channel.delete(reason="Roomer: Auto VC cleanup.")
