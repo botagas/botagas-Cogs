@@ -13,6 +13,7 @@ class Roomer(red_commands.Cog):
     """
     Automatically create temporary voice channels when users join a join-to-create channel.
     """
+
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=300620201743, force_registration=True)
@@ -30,7 +31,6 @@ class Roomer(red_commands.Cog):
     @red_commands.guild_only()
     async def roomer(self, ctx: red_commands.Context):
         """Roomer configuration."""
-        pass
 
     @roomer.command(name="enable")
     async def enable(self, ctx: red_commands.Context):
