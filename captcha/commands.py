@@ -30,7 +30,8 @@ from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
 
 from ._tagscript import TagscriptConverter
-from .abc import CompositeMetaClass, MixinMeta, CaptchaVerifyButton
+from .abc import CaptchaVerifyButton, CompositeMetaClass, MixinMeta
+
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     @commands.guild_only()
@@ -51,21 +52,21 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         channel_id = await self.config.guild(ctx.guild).channel()
         if not channel_id:
             return await ctx.send("Verification channel not configured.")
-    
+
         channel = ctx.guild.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             return await ctx.send("Invalid verification channel.")
-    
+
         embed = discord.Embed(
             description="If above verification is not available, please click the green button below to verify",
-            color=discord.Color(0x34EB83)  
+            color=discord.Color(0x34EB83),
         )
-    
+
         view = CaptchaVerifyButton(self)
-    
+
         await channel.send(embed=embed, view=view)
         await ctx.send("Verification message deployed.")
-    
+
     @_captcha.command(name="toggle")
     async def _toggle(self, ctx: commands.GuildContext, toggle: bool):
         """
@@ -96,10 +97,12 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         )
 
     @_captcha.command(name="unverifiedrole")
-    async def _unverifiedrole(self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None):
+    async def _unverifiedrole(
+        self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None
+    ):
         """
         Configure the role for users before captcha verification.
-    
+
         Run without a role to clear the setting.
         """
         if role is None:

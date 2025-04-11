@@ -39,6 +39,7 @@ if TYPE_CHECKING:
 
 ColorTuple: TypeAlias = Union[Tuple[int, int, int], Tuple[int, int, int, int]]
 
+
 class CaptchaObj:
     lookup_table: List[int] = [int(index * 1.97) for index in range(256)]
 

@@ -139,10 +139,10 @@ class Captcha(
                 return guild
 
     async def begin_captcha_flow(self, member: discord.Member, channel: discord.TextChannel):
-    
+
         self._verification_phase[member.id] = 0
         self._user_tries[member.id] = []
-    
+
         message_string = "".join(random.choice(string.ascii_uppercase) for _ in range(6))
         captcha = CaptchaObj(self, width=300, height=100)
         captcha.generate(message_string)
@@ -191,24 +191,25 @@ class Captcha(
         timeout: int = await self.config.guild(member.guild).timeout()
 
         try:
+
             def check(message: discord.Message) -> bool:
                 return (
                     message.content.upper() == message_string
                     and message.author.id == member.id
                     and message.channel.id == channel.id
                 )
-        
+
             response_message: discord.Message = await self.bot.wait_for(
                 "message",
                 check=check,
                 timeout=timeout,
             )
-        
+
             try:
                 await response_message.delete()
             except discord.HTTPException:
                 pass
-        
+
         except asyncio.TimeoutError:
             await member.kick(
                 reason=f"{member.id} failed to solve captcha verification in time.",
@@ -249,12 +250,16 @@ class Captcha(
 
             os.remove(f"{str(self.data_path)}/{member.id}.png")
 
-            role_before_id: Optional[int] = await self.config.guild(member.guild).role_before_captcha()
+            role_before_id: Optional[int] = await self.config.guild(
+                member.guild
+            ).role_before_captcha()
             if role_before_id:
                 role_before: Optional[discord.Role] = member.guild.get_role(role_before_id)
                 if role_before:
                     try:
-                        await member.remove_roles(role_before, reason="Captcha passed, removing unverified role.")
+                        await member.remove_roles(
+                            role_before, reason="Captcha passed, removing unverified role."
+                        )
                     except discord.Forbidden:
                         log.warning(f"Could not remove role_before_captcha from {member.id}")
 
