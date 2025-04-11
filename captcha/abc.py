@@ -23,13 +23,14 @@ SOFTWARE.
 """
 
 from abc import ABC, ABCMeta, abstractmethod
-from .commands import CaptchaCommands
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import discord
 from redbot.core import Config, commands
 from redbot.core.bot import Red
+
+from .commands import CaptchaCommands
 
 
 class CaptchaVerifyButton(discord.ui.View):
