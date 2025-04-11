@@ -39,4 +39,4 @@
 
 
 ## Credits
-Thank you to everyone in the official [red server](https://discord.gg/red) for always being nice and helpful
+Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot
