@@ -26,6 +26,12 @@ class Roomer(red_commands.Cog):
             user_limit=None,
         )
 
+    async def cog_command_error(self, ctx, error):
+        if isinstance(error, red_commands.MissingPermissions):
+            await ctx.send("🚫 You do not have permission to use this command.")
+        else:
+            raise error  # Re-raise unhandled errors so Redbot can deal with them
+
     async def red_delete_data_for_user(self, **kwargs):
         return
 
