@@ -9,7 +9,7 @@ _ = Translator("Roomer", __file__)
 
 
 @cog_i18n(_)
-class Roomer(commands.Cog):
+class Roomer(red_commands.Cog):
     """
     Automatically create temporary voice channels when users join a join-to-create channel.
     """
