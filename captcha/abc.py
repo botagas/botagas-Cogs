@@ -23,6 +23,7 @@ SOFTWARE.
 """
 
 from abc import ABC, ABCMeta, abstractmethod
+from .commands import CaptchaCommands
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
