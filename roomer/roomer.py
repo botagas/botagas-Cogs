@@ -128,9 +128,13 @@ class Roomer(red_commands.Cog):
         else:
             raise error  # Re-raise unhandled errors so Redbot can deal with them
 
-    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
+    async def cog_app_command_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("🚫 You do not have permission to use this command.", ephemeral=True)
+            await interaction.response.send_message(
+                "🚫 You do not have permission to use this command.", ephemeral=True
+            )
         else:
             raise error
 
