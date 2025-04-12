@@ -27,6 +27,9 @@ It also has these new features:
 - Room features are only change-able by the creator of the channel.
 - If the creator is not present (has left), any other user inside or outside of the room can claim the room for themselves to manage it.
 
+### Captcha rework
+Captcha now uses modals and interactions instead of sending messages on each user's join and waiting for their reply which generates unnecessary message notifications.
+Current implementation does not YET support slash commands. 
 ## Credits
 - Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot.
 - Thanks to Seina-Cogs for their Captcha cog. Visit their repository at [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) here.

@@ -15,7 +15,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
 
         self.tree_group.add_command(self.deploy)
         self.tree_group.add_command(self.toggle)
@@ -66,7 +68,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Captcha verification is now {'enabled' if toggle else 'disabled'}.", ephemeral=True
         )
 
-    @app_commands.command(name="unverifiedrole", description="Set the role assigned before captcha is completed.")
+    @app_commands.command(
+        name="unverifiedrole", description="Set the role assigned before captcha is completed."
+    )
     @app_commands.default_permissions(administrator=True)
     async def unverifiedrole(self, interaction: discord.Interaction, role: Optional[discord.Role]):
         guild = interaction.guild
@@ -79,7 +83,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the unverified role to {role.name} ({role.id}).", ephemeral=True
         )
 
-    @app_commands.command(name="role", description="Set the role granted after captcha is completed.")
+    @app_commands.command(
+        name="role", description="Set the role granted after captcha is completed."
+    )
     @app_commands.default_permissions(administrator=True)
     async def role(self, interaction: discord.Interaction, role: Optional[discord.Role]):
         guild = interaction.guild
@@ -94,7 +100,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the captcha verification role to {role.name} ({role.id}).", ephemeral=True
         )
 
-    @app_commands.command(name="timeout", description="Set the timeout for captcha verification (50–300 seconds).")
+    @app_commands.command(
+        name="timeout", description="Set the timeout for captcha verification (50–300 seconds)."
+    )
     @app_commands.default_permissions(administrator=True)
     async def timeout(
         self, interaction: discord.Interaction, amount: app_commands.Range[int, 50, 300]
@@ -105,7 +113,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the timeout to {amount} seconds.", ephemeral=True
         )
 
-    @app_commands.command(name="tries", description="Set the max attempts allowed for captcha verification (2–10).")
+    @app_commands.command(
+        name="tries", description="Set the max attempts allowed for captcha verification (2–10)."
+    )
     @app_commands.default_permissions(administrator=True)
     async def tries(
         self, interaction: discord.Interaction, amount: app_commands.Range[int, 2, 10]
@@ -116,7 +126,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the number of attempts to {amount}.", ephemeral=True
         )
 
-    @app_commands.command(name="embed", description="Set the text shown in the verification embed.")
+    @app_commands.command(
+        name="embed", description="Set the text shown in the verification embed."
+    )
     @app_commands.default_permissions(administrator=True)
     async def embed(self, interaction: discord.Interaction, message: Optional[str] = None):
         guild = interaction.guild
