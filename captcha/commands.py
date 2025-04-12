@@ -10,6 +10,7 @@ from .abc import CompositeMetaClass, MixinMeta
 from .format import format_message
 from .views import CaptchaVerifyButton
 
+
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
 
