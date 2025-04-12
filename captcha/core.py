@@ -99,7 +99,7 @@ class Captcha(
 
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
 
-    def register_active_challenge(self, user_id: int, code: str) -> None:
+    def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
         self._active_challenges[user_id] = code.upper()
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
