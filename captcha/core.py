@@ -102,7 +102,6 @@ class Captcha(
     def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
         self._active_challenges[user_id] = (code.upper(), guild_id)
 
-
     def format_help_for_context(self, ctx: commands.Context) -> str:
         pre_processed = super().format_help_for_context(ctx) or ""
         n = "\n" if "\n\n" not in pre_processed else ""
