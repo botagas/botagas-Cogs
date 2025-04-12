@@ -2,6 +2,7 @@ from typing import Any, Optional
 
 import discord
 
+
 def format_message(template: str, member: discord.Member) -> str:
     return template.format(
         mention=member.mention,
