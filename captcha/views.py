@@ -69,7 +69,7 @@ class CaptchaVerifyButton(discord.ui.View):
             )
 
         code = self.cog.generate_captcha_code()
-        self.cog.register_active_challenge(member.id, code)
+        self.cog.register_active_challenge(member.id, code, interaction.guild.id)
         image_fp = self.cog.save_captcha_image(code, member.id)
         captcha_file = discord.File(image_fp)
 
