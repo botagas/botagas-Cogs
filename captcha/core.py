@@ -165,16 +165,7 @@ class Captcha(
 
         color: discord.Color = await self.bot.get_embed_color(channel)
 
-        text = self.format_message(message_before_captcha, member),
-                "guild": tse.GuildAdapter(member.guild),
-                "color": tse.StringAdapter(str(color)),
-            },
-        )
-        ,
-                    "guild": tse.GuildAdapter(member.guild),
-                    "color": tse.StringAdapter(str(color)),
-                },
-            )
+        text = self.format_message(message_before_captcha, member)
         temp_captcha = await channel.send(content=text, file=captcha_file)
 
         self._captchas[member.id] = temp_captcha
@@ -216,16 +207,7 @@ class Captcha(
 
             color: discord.Color = await self.bot.get_embed_color(channel)
 
-            text = self.format_message(message_after_captcha, member),
-                    "guild": tse.GuildAdapter(member.guild),
-                    "color": tse.StringAdapter(str(color)),
-                },
-            )
-            ,
-                        "guild": tse.GuildAdapter(member.guild),
-                        "color": tse.StringAdapter(str(color)),
-                    },
-                )
+            text = self.format_message(message_after_captcha, member)
             temp_success_message = await channel.send(content=text)
 
             self._user_tries[member.id].append(temp_success_message)
