@@ -145,16 +145,20 @@ class Captcha(
                     view = CaptchaVerifyButton(self)
                     new_msg = await channel.send(embed=embed, view=view)
 
-                    await self.config.guild(guild).captcha_message.set({
-                        "channel_id": channel.id,
-                        "message_id": new_msg.id,
-                    })
+                    await self.config.guild(guild).captcha_message.set(
+                        {
+                            "channel_id": channel.id,
+                            "message_id": new_msg.id,
+                        }
+                    )
 
                     self.bot.add_view(view)
                     continue
                 except discord.NotFound:
                     pass
-            log.warning(f"[captcha] No active captcha message in {guild.name}, skipped deployment.")
+            log.warning(
+                f"[captcha] No active captcha message in {guild.name}, skipped deployment."
+            )
 
     async def _build_cache(self) -> None:
         self._config: Dict[int, Dict[str, Any]] = await self.config.all_guilds()
