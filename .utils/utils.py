@@ -70,16 +70,16 @@ VER_REG: Pattern[str] = re.compile(r"\_\_version\_\_ = \"(\d+\.\d+\.\d+)", flags
 DEFAULT_AUTHOR: List[str] = ["inthedark.org"]
 
 HEADER: Final[str] = (
-    "# Seina-Cogs V3\n"
+    "# botagas-Cogs V3\n"
     "[![Red-DiscordBot](https://img.shields.io/badge/Red--DiscordBot-V3-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot)"
-    "[![Discord.py](https://img.shields.io/badge/Discord.py-rewrite-blue.svg)](https://github.com/Rapptz/discord.py/tree/rewrite)\n\n"
-    "Lemon's Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)."
-    "To add the cogs to your instance please do: `[p]repo add Seina-Cogs https://github.com/japandotorg/Seina-Cogs/`\n"
+    "botagas-Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)."
+    "In order to add the cog, use `[p]repo add botagas-Cogs https://github.com/botagas/botagas-Cogs/`\n"
     "## About Cogs\n"
     "{body}\n\n"
-    "Any questions you can find [Melon](https://discord.com/oauth2/authorize?client_id=808706062013825036&scope=bot&permissions=1099511627767%20applications.commands) and myself over on [the support server](https://discord.gg/mXfYuMy92r)\n"
     "## Credits\n"
-    "Thank you to everyone in the official [red server](https://discord.gg/red) for always being nice and helpful"
+    "Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot."
+    "Thanks to Seina-Cogs for their Captcha cog. Visit their repository at [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) here."
+    "Thanks to Dav-Cogs for their Roomer cog. Visit their repository at [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) here."
 )
 
 
