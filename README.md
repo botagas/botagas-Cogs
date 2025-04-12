@@ -13,7 +13,7 @@ bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/R
 
 
 ## Credits
-- Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot
+- Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot.
 - Thanks to Seina-Cogs for their Captcha cog. Visit their repository at [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) here.
 - Thanks to Dav-Cogs for their Roomer cog. Visit their repository at [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) here.
 
