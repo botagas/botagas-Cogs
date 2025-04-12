@@ -74,7 +74,9 @@ class CaptchaVerifyButton(discord.ui.View):
 
         try:
             dm = await member.create_dm()
-            message_before = await self.cog.config.guild(interaction.guild).message_before_captcha()
+            message_before = await self.cog.config.guild(
+                interaction.guild
+            ).message_before_captcha()
             text = self.cog.format_message(message_before, member)
             await dm.send(
                 content=text,
