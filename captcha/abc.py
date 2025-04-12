@@ -30,9 +30,6 @@ import discord
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 
-from .commands import CaptchaCommands
-
-
 class MixinMeta(ABC):
     bot: Red
     config: Config
