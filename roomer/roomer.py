@@ -183,16 +183,23 @@ class ChannelControlView(discord.ui.View):
             return
         modal = LimitModal(self.channel)
         await interaction.response.send_modal(modal)
+
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id == self.owner_id:
-            return await interaction.response.send_message("✅ You already own this room.", ephemeral=True)
+            return await interaction.response.send_message(
+                "✅ You already own this room.", ephemeral=True
+            )
         if self.channel.guild.get_member(self.owner_id) not in self.channel.members:
             self.owner_id = interaction.user.id
             self.cog.channel_owners[self.channel.id] = interaction.user.id
-            await interaction.response.send_message("✅ You have claimed ownership of this room.", ephemeral=True)
+            await interaction.response.send_message(
+                "✅ You have claimed ownership of this room.", ephemeral=True
+            )
         else:
-            await interaction.response.send_message("❌ The current owner is still in the room.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ The current owner is still in the room.", ephemeral=True
+            )
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
