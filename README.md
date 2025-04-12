@@ -5,13 +5,11 @@
 bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/). Initially forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) for Captcha rework, later expanded with Roomer from [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) by implementing slash-command support. Credit goes to the original authors for their efforts and code to be reworked, improved and built upon.
 
 ## Installation
-
+> Substitute `[p]` for your prefix.
 1. Load downloader by using `[p]load downloader`
 2. Add `botagas-Cogs` to your Red instance by using `[p]repo add botagas-Cogs https://github.com/botagas/botagas-Cogs`
 3. Install cog(s) from `botagas-Cogs` in your Red instance `[p]cog install botagas-Cogs <CogName>`
 4. Load the cog(s) by using `[p]load <cogName>`
-
-> `[p]` is your prefix.
 
 
 ## Credits
