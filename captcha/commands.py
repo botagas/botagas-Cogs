@@ -168,12 +168,12 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     msg = await channel.fetch_message(captcha_info["message_id"])
                     embed = discord.Embed(
                         description=self.format_message(message, ctx.guild.me),
-                        color=discord.Color.green()
+                        color=discord.Color.green(),
                     )
                     await msg.edit(embed=embed)
             except Exception as e:
                 await ctx.send(f"Embed updated, but I couldn't update the deployed message: `{e}`")
-                
+
     @_message.command(name="before")
     async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
         """
