@@ -43,8 +43,9 @@ class CaptchaSubmitView(discord.ui.View):
                 "This captcha isn't for you.", ephemeral=True
             )
 
-        await interaction.response.send_modal(CaptchaModal(self.cog, self.user_id, self.expected_code))
-
+        await interaction.response.send_modal(
+            CaptchaModal(self.cog, self.user_id, self.expected_code)
+        )
 
 
 class CaptchaVerifyButton(discord.ui.View):
