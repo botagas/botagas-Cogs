@@ -16,8 +16,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         super().__init__()
         self.bot = bot
 
-        self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
-
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
