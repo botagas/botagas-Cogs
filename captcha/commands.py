@@ -17,27 +17,31 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         super().__init__()
         self.bot = bot
 
-        # Dynamically add commands to the group
-        for command in self.get_app_commands():
-            self.captcha_group.add_command(command)
+        # Check if the "captcha" group already exists
+        existing_group = bot.tree.get_command("captcha")
+        if existing_group:
+            # If it exists, remove it from the command tree
+            self.bot.tree.remove_command("captcha")
+
+        # Create the "captcha" group and add commands
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
+
+        # Add commands to the group
+        self.tree_group.add_command(self.deploy)
+        self.tree_group.add_command(self.toggle)
+        self.tree_group.add_command(self.unverifiedrole)
+        self.tree_group.add_command(self.role)
+        self.tree_group.add_command(self.timeout)
+        self.tree_group.add_command(self.tries)
+        self.tree_group.add_command(self.embed)
+        self.tree_group.add_command(self.settings)
+        self.tree_group.add_command(self.reset)
+        self.tree_group.add_command(self.channel)
 
         # Add the group to the bot's command tree
-        self.bot.tree.add_command(self.captcha_group)
-
-    def get_app_commands(self):
-        # Return a list of commands bound to this instance
-        return [
-            self.deploy,
-            self.toggle,
-            self.unverifiedrole,
-            self.role,
-            self.timeout,
-            self.tries,
-            self.embed,
-            self.settings,
-            self.reset,
-            self.channel,
-        ]
+        self.bot.tree.add_command(self.tree_group)
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
