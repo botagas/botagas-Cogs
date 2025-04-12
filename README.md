@@ -2,7 +2,7 @@
 
 [![CodeQL](https://github.com/botagas/botagas-Cogs/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/codeql-analysis.yml) [![Linting](https://github.com/botagas/botagas-Cogs/actions/workflows/tests.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/tests.yml) 
 
-bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/). Initially forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) for Captcha rework, later expanded with Roomer from [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) by implementing slash-command support. Credit goes to the original authors for their efforts and code to be reworked, improved and built upon.
+bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/). Initially forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) for Captcha rework, later expanded with Roomer from [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) by implementing slash-command support and implementing modals for channel management instead of commands. Credit goes to the original authors for their efforts and code to be reworked, improved and built upon.
 
 ## Installation
 > Substitute `[p]` for your prefix.
