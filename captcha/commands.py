@@ -43,26 +43,35 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
 
             view = CaptchaVerifyButton(self)
             await channel.send(embed=embed, view=view)
-            await interaction.response.send_message("Verification message deployed.", ephemeral=True)
+            await interaction.response.send_message(
+                "Verification message deployed.", ephemeral=True
+            )
 
-        @self.tree_group.command(name="toggle", description="Enable or disable captcha verification")
+        @self.tree_group.command(
+            name="toggle", description="Enable or disable captcha verification"
+        )
         @app_commands.default_permissions(administrator=True)
         async def toggle(self, interaction: discord.Interaction, toggle: bool):
             guild = interaction.guild
             await self.config.guild(guild).toggle.set(toggle)
             await interaction.response.send_message(
-                f"Captcha verification is now {'enabled' if toggle else 'disabled'}.", ephemeral=True
+                f"Captcha verification is now {'enabled' if toggle else 'disabled'}.",
+                ephemeral=True,
             )
 
         @self.tree_group.command(
             name="unverifiedrole", description="Set the role assigned before captcha is completed."
         )
         @app_commands.default_permissions(administrator=True)
-        async def unverifiedrole(self, interaction: discord.Interaction, role: Optional[discord.Role]):
+        async def unverifiedrole(
+            self, interaction: discord.Interaction, role: Optional[discord.Role]
+        ):
             guild = interaction.guild
             if role is None:
                 await self.config.guild(guild).role_before_captcha.clear()
-                await interaction.response.send_message("Cleared the unverified role.", ephemeral=True)
+                await interaction.response.send_message(
+                    "Cleared the unverified role.", ephemeral=True
+                )
                 return
             await self.config.guild(guild).role_before_captcha.set(role.id)
             await interaction.response.send_message(
@@ -83,11 +92,13 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                 return
             await self.config.guild(guild).role_after_captcha.set(role.id)
             await interaction.response.send_message(
-                f"Configured the captcha verification role to {role.name} ({role.id}).", ephemeral=True
+                f"Configured the captcha verification role to {role.name} ({role.id}).",
+                ephemeral=True,
             )
 
         @self.tree_group.command(
-            name="timeout", description="Set the timeout for captcha verification (50–300 seconds)."
+            name="timeout",
+            description="Set the timeout for captcha verification (50–300 seconds).",
         )
         @app_commands.default_permissions(administrator=True)
         async def timeout(
@@ -100,7 +111,8 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             )
 
         @self.tree_group.command(
-            name="tries", description="Set the max attempts allowed for captcha verification (2–10)."
+            name="tries",
+            description="Set the max attempts allowed for captcha verification (2–10).",
         )
         @app_commands.default_permissions(administrator=True)
         async def tries(
@@ -120,7 +132,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             guild = interaction.guild
             if message is None:
                 await self.config.guild(guild).embed_text.clear()
-                await interaction.response.send_message("Cleared the embed message.", ephemeral=True)
+                await interaction.response.send_message(
+                    "Cleared the embed message.", ephemeral=True
+                )
                 return
 
             await self.config.guild(guild).embed_text.set(message)
@@ -145,7 +159,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                         ephemeral=True,
                     )
 
-        @self.tree_group.command(name="settings", description="View the current captcha configuration.")
+        @self.tree_group.command(
+            name="settings", description="View the current captcha configuration."
+        )
         @app_commands.default_permissions(administrator=True)
         async def settings(self, interaction: discord.Interaction):
             guild = interaction.guild
@@ -183,7 +199,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        @self.tree_group.command(name="channel", description="Set the channel for captcha verification.")
+        @self.tree_group.command(
+            name="channel", description="Set the channel for captcha verification."
+        )
         @app_commands.default_permissions(administrator=True)
         async def channel(
             self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]
@@ -201,7 +219,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                 ephemeral=True,
             )
 
-        @self.tree_group.command(name="reset", description="Reset all captcha settings to default.")
+        @self.tree_group.command(
+            name="reset", description="Reset all captcha settings to default."
+        )
         @app_commands.default_permissions(administrator=True)
         async def reset(self, interaction: discord.Interaction):
             guild = interaction.guild
