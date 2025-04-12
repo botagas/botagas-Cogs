@@ -152,7 +152,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     ephemeral=True,
                 )
 
-    @self.tree_group.command(name="settings", description="View the current captcha configuration.")
+    @self.tree_group.command(
+        name="settings", description="View the current captcha configuration."
+    )
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -190,7 +192,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @self.tree_group.command(name="channel", description="Set the channel for captcha verification.")
+    @self.tree_group.command(
+        name="channel", description="Set the channel for captcha verification."
+    )
     @app_commands.default_permissions(administrator=True)
     async def channel(
         self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]
