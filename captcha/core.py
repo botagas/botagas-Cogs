@@ -29,7 +29,7 @@ import random
 import string
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Final, List, Optional, Union, Tuple
+from typing import Any, Dict, Final, List, Optional, Union
 
 import discord
 import TagScriptEngine as tse
@@ -355,14 +355,11 @@ class Captcha(
         self.cleanup_captcha_image(message.author.id)
         self._active_challenges.pop(message.author.id, None)
 
-
     def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
         self._active_challenges[user_id] = (code.upper(), guild_id)
 
-
     def generate_captcha_code(self) -> str:
         return "".join(random.choice(string.ascii_uppercase) for _ in range(6))
-
 
     def save_captcha_image(self, code: str, user_id: int) -> str:
         path = os.path.join(str(self.data_path), f"{user_id}.png")
@@ -370,14 +367,14 @@ class Captcha(
         captcha.write(code, path)
         return path
 
-
     def cleanup_captcha_image(self, user_id: int):
         path = os.path.join(str(self.data_path), f"{user_id}.png")
         if os.path.exists(path):
             os.remove(path)
 
-
-    async def _on_captcha_success(self, member: discord.Member, source: Union[discord.Interaction, discord.Message]):
+    async def _on_captcha_success(
+        self, member: discord.Member, source: Union[discord.Interaction, discord.Message]
+    ):
         role_id = await self.config.guild(member.guild).role_after_captcha()
         role = member.guild.get_role(role_id) if role_id else None
         if role:
@@ -392,8 +389,9 @@ class Captcha(
         else:
             await source.channel.send(text)
 
-
-    async def _on_captcha_failure(self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]):
+    async def _on_captcha_failure(
+        self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]
+    ):
         text = "❌ Incorrect captcha. Please try again or contact an admin."
         if isinstance(source, discord.Interaction):
             await source.followup.send(text, ephemeral=True)
