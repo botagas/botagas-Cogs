@@ -112,7 +112,7 @@ class Captcha(
         ]
         return "\n".join(text)
 
-    async def _initialize(self):
+    async def _initialize(self) -> None:
         await self.bot.wait_until_red_ready()
         await self._build_cache()
 
