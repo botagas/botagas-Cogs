@@ -158,36 +158,39 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Configure the after and before messages.
         """
 
-    @_message.command(name="before")
-    async def _before(
-        self, ctx: commands.GuildContext, *, message: Optional[TagscriptConverter] = None
-    ):
+    @_captcha.group(name="message")
+    async def _message(self, _: commands.GuildContext):
         """
-        Configure the before captcha message.
+        Configure the after and before messages.
+        """
+
+    @_message.command(name="before")
+    async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
+        """
+        Configure the message shown before the captcha.
+        Use {mention}, {name}, {guild}, {id} as placeholders.
         """
         if message is None:
             await self.config.guild(ctx.guild).message_before_captcha.clear()
             await ctx.send("Cleared the before captcha message.")
             return
         await self.config.guild(ctx.guild).message_before_captcha.set(message)
-        await ctx.send(f"Changed the before captcha message:\n{box(str(message), lang='json')}")
+        await ctx.send(f"✅ Updated before captcha message:
+{box(message, lang='yaml')}")
 
     @_message.command(name="after")
-    async def _after(
-        self,
-        ctx: commands.GuildContext,
-        *,
-        message: Optional[TagscriptConverter] = None,
-    ):
+    async def _after(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
         """
-        Configure the after captcha message.
+        Configure the message shown after the captcha.
+        Use {mention}, {name}, {guild}, {id} as placeholders.
         """
         if message is None:
             await self.config.guild(ctx.guild).message_after_captcha.clear()
             await ctx.send("Cleared the after captcha message.")
             return
         await self.config.guild(ctx.guild).message_after_captcha.set(message)
-        await ctx.send(f"Changed the after captcha message:\n{box(str(message), lang='json')}")
+        await ctx.send(f"✅ Updated after captcha message:
+{box(message, lang='yaml')}")
 
     @commands.bot_has_permissions(embed_links=True)
     @_captcha.command(name="settings", aliases=["showsettings", "show", "ss"])
@@ -246,3 +249,4 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Successfully reset all the captcha settings back to default.")
         else:
             await ctx.send("Cancelled, I wont reset the captcha settings.")
+

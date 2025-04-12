@@ -161,32 +161,21 @@ class Captcha(
                 except discord.Forbidden:
                     log.warning(f"Could not assign role_before_captcha to {member.id}")
 
-        message_before_captcha: str = await self.config.guild(
-            member.guild
-        ).message_before_captcha()
+        message_before_captcha = await self.config.guild(member.guild).message_before_captcha()
 
         color: discord.Color = await self.bot.get_embed_color(channel)
 
-        kwargs: Dict[str, Any] = process_tagscript(
-            message_before_captcha,
-            {
-                "member": tse.MemberAdapter(member),
+        text = self.format_message(message_before_captcha, member),
                 "guild": tse.GuildAdapter(member.guild),
                 "color": tse.StringAdapter(str(color)),
             },
         )
-        if not kwargs:
-            await self.config.guild(member.guild).message_before_captcha.clear()
-            kwargs: Dict[str, Any] = process_tagscript(
-                message_before_captcha_string,
-                {
-                    "member": tse.MemberAdapter(member),
+        ,
                     "guild": tse.GuildAdapter(member.guild),
                     "color": tse.StringAdapter(str(color)),
                 },
             )
-        kwargs["file"] = captcha_file
-        temp_captcha: discord.Message = await channel.send(**kwargs)
+        temp_captcha = await channel.send(content=text, file=captcha_file)
 
         self._captchas[member.id] = temp_captcha
         self._user_tries[member.id].append(temp_captcha)
@@ -223,31 +212,21 @@ class Captcha(
         else:
             del self._verification_phase[member.id]
 
-            message_after_captcha: str = await self.config.guild(
-                member.guild
-            ).message_after_captcha()
+            message_after_captcha = await self.config.guild(member.guild).message_after_captcha()
 
             color: discord.Color = await self.bot.get_embed_color(channel)
 
-            kwargs: Dict[str, Any] = process_tagscript(
-                message_after_captcha,
-                {
-                    "member": tse.MemberAdapter(member),
+            text = self.format_message(message_after_captcha, member),
                     "guild": tse.GuildAdapter(member.guild),
                     "color": tse.StringAdapter(str(color)),
                 },
             )
-            if not kwargs:
-                await self.config.guild(member.guild).message_after_captcha.clear()
-                kwargs: Dict[str, Any] = process_tagscript(
-                    message_after_captcha_string,
-                    {
-                        "member": tse.MemberAdapter(member),
+            ,
                         "guild": tse.GuildAdapter(member.guild),
                         "color": tse.StringAdapter(str(color)),
                     },
                 )
-            temp_success_message: discord.Message = await channel.send(**kwargs)
+            temp_success_message = await channel.send(content=text)
 
             self._user_tries[member.id].append(temp_success_message)
 
