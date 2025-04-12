@@ -149,7 +149,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         """
         Configure the after and before messages.
         """
-        
+
     @_message.command(name="embed")
     async def _embed(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
         """Set the text shown in the verification embed."""
