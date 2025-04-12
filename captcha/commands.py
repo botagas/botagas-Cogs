@@ -27,18 +27,27 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             return await interaction.response.send_message(
                 "Verification channel not configured.", ephemeral=True
             )
+
         channel = guild.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             return await interaction.response.send_message(
                 "Invalid verification channel.", ephemeral=True
             )
+
         embed_text = await self.config.guild(guild).embed_text()
         embed = discord.Embed(
             description=format_message(embed_text, guild.me),
             color=discord.Color(0x34EB83),
         )
+
         view = CaptchaVerifyButton(self)
-        await channel.send(embed=embed, view=view)
+        msg = await channel.send(embed=embed, view=view)
+
+        await self.config.guild(guild).set_raw("captcha_message", value={
+            "channel_id": msg.channel.id,
+            "message_id": msg.id,
+        })
+
         await interaction.response.send_message("Verification message deployed.", ephemeral=True)
 
     @captcha_group.command(name="toggle", description="Enable or disable captcha verification")
@@ -106,6 +115,25 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         await self.config.guild(guild).tries.set(amount)
         await interaction.response.send_message(
             f"Configured the number of attempts to {amount}.", ephemeral=True
+        )
+
+    @captcha_group.command(name="before", description="Set the message shown before captcha.")
+    @app_commands.default_permissions(administrator=True)
+    async def before(self, interaction: discord.Interaction, message: str):
+        guild = interaction.guild
+        await self.config.guild(guild).message_before_captcha.set(message)
+        await interaction.response.send_message(
+            f"✅ Updated before-captcha message:\n{box(message, lang='yaml')}", ephemeral=True
+        )
+
+
+    @captcha_group.command(name="after", description="Set the message shown after captcha.")
+    @app_commands.default_permissions(administrator=True)
+    async def after(self, interaction: discord.Interaction, message: str):
+        guild = interaction.guild
+        await self.config.guild(guild).message_after_captcha.set(message)
+        await interaction.response.send_message(
+            f"✅ Updated after-captcha message:\n{box(message, lang='yaml')}", ephemeral=True
         )
 
     @captcha_group.command(name="embed", description="Click the green button below to verify")
