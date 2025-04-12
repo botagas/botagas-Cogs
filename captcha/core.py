@@ -29,7 +29,7 @@ import random
 import string
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Final, List, Optional, Union
+from typing import Any, Dict, Final, List, Optional, Union, Tuple
 
 import discord
 import TagScriptEngine as tse
@@ -333,20 +333,36 @@ class Captcha(
         if message.guild is not None or message.author.bot:
             return
 
-        code = self._active_challenges.get(message.author.id)
-        if not code:
+        code_info = self._active_challenges.get(message.author.id)
+        if not code_info:
             return  # No active challenge
 
+        code, guild_id = code_info
         if message.content.strip().upper() == code:
-            await self._on_captcha_success(message.author, message)
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                return
+            member = guild.get_member(message.author.id)
+            if not member:
+                try:
+                    member = await guild.fetch_member(message.author.id)
+                except discord.HTTPException:
+                    return
+            await self._on_captcha_success(member, message)
         else:
             await self._on_captcha_failure(message.author, message)
 
         self.cleanup_captcha_image(message.author.id)
         self._active_challenges.pop(message.author.id, None)
 
+
+    def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
+        self._active_challenges[user_id] = (code.upper(), guild_id)
+
+
     def generate_captcha_code(self) -> str:
         return "".join(random.choice(string.ascii_uppercase) for _ in range(6))
+
 
     def save_captcha_image(self, code: str, user_id: int) -> str:
         path = os.path.join(str(self.data_path), f"{user_id}.png")
@@ -354,17 +370,17 @@ class Captcha(
         captcha.write(code, path)
         return path
 
+
     def cleanup_captcha_image(self, user_id: int):
         path = os.path.join(str(self.data_path), f"{user_id}.png")
         if os.path.exists(path):
             os.remove(path)
 
-    async def _on_captcha_success(
-        self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]
-    ):
-        role_id = await self.config.guild(member.mutual_guilds[0]).role_after_captcha()
-        role = member.mutual_guilds[0].get_role(role_id) if role_id else None
-        if role and isinstance(member, discord.Member):
+
+    async def _on_captcha_success(self, member: discord.Member, source: Union[discord.Interaction, discord.Message]):
+        role_id = await self.config.guild(member.guild).role_after_captcha()
+        role = member.guild.get_role(role_id) if role_id else None
+        if role:
             try:
                 await member.add_roles(role, reason="Captcha passed")
             except discord.Forbidden:
@@ -376,9 +392,8 @@ class Captcha(
         else:
             await source.channel.send(text)
 
-    async def _on_captcha_failure(
-        self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]
-    ):
+
+    async def _on_captcha_failure(self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]):
         text = "❌ Incorrect captcha. Please try again or contact an admin."
         if isinstance(source, discord.Interaction):
             await source.followup.send(text, ephemeral=True)
