@@ -150,7 +150,7 @@ class Captcha(
                         "message_id": new_msg.id,
                     })
 
-                    self.bot.add_view(view)
+                    self.bot.add_view(view, message_id=new_msg.id)
                     continue
                 except discord.NotFound:
                     pass
