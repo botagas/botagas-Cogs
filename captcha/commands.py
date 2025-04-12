@@ -150,12 +150,6 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Configure the after and before messages.
         """
 
-    @_captcha.group(name="captchatext")
-    async def _message(self, _: commands.GuildContext):
-        """
-        Configure the after and before messages.
-        """
-
     @_message.command(name="before")
     async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
         """
