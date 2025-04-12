@@ -28,22 +28,22 @@ import os
 import random
 import string
 from pathlib import Path
-from types import ModuleType
 from typing import Any, Dict, Final, List, Optional, Union
 
 import discord
+from discord import app_commands
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.data_manager import bundled_data_path
 
 from .abc import CompositeMetaClass
-from discord import app_commands
 from .format import format_message
 from .objects import CaptchaObj
 
 DELETE_AFTER: Final[int] = 10
 
 log: logging.Logger = logging.getLogger("red.seina.captcha")
+
 
 class Captcha(commands.Cog, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
