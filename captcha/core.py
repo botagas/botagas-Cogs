@@ -54,7 +54,7 @@ class Captcha(commands.Cog, metaclass=CompositeMetaClass):
 
     def __init__(self, bot: Red) -> None:
         super().__init__()
-        self.bot = Red = bot
+        self.bot = bot
 
         self.bot.tree.add_command(self.__class__.captcha_group)
 
