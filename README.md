@@ -7,11 +7,6 @@
 
 bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/). Initially forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) for Captcha rework, later expanded with Roomer from [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) by implementing slash-command support. Credit goes to the original authors for their efforts and code to be reworked, improved and built upon.
 
-
-> [!TIP]
-> For support regarding Red Bot cogs, join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server. Regarding issues, feel free to report them on this GitHub repository.
-
-
 ## Installation
 
 1. Load downloader by using `[p]load downloader`
