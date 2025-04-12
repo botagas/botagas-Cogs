@@ -55,4 +55,3 @@ async def setup(bot: Red) -> None:
     await validate_tagscriptengine(bot, tse_version)
     cog = Captcha(bot)
     await bot.add_cog(cog)
-    bot.add_listener(cog.on_message, name="on_message")

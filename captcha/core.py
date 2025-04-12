@@ -117,7 +117,7 @@ class Captcha(
         await self._build_cache()
 
         for guild_id, data in self._config.items():
-            if not data["toggle"]:
+            if not data.get("toggle"):
                 continue
 
             captcha_info = await self.config.guild_from_id(guild_id).captcha_message()
@@ -128,16 +128,22 @@ class Captcha(
             if not guild:
                 continue
 
-            channel = guild.get_channel(captcha_info["channel_id"])
+            channel = guild.get_channel(captcha_info.get("channel_id"))
             if not isinstance(channel, discord.TextChannel):
                 continue
 
             try:
-                # Reattach the view to the existing message
-                self.bot.add_view(CaptchaVerifyButton(self), message_id=captcha_info["message_id"])
-            except Exception as e:
-                # Optionally log or clean config
-                pass
+                message = await channel.fetch_message(captcha_info.get("message_id"))
+                await message.edit(view=CaptchaVerifyButton(self))  # 🔥 reattach explicitly
+                # Optionally re-save the config to confirm it is still valid
+                await self.config.guild(guild).captcha_message.set({
+                    "channel_id": channel.id,
+                    "message_id": message.id
+                })
+            except discord.NotFound:
+                log.warning(f"Captcha message {captcha_info.get('message_id')} not found in {guild.name}")
+            except discord.HTTPException as e:
+                log.exception(f"Failed to reattach captcha view in {guild.name}: {e}")
 
     async def _build_cache(self) -> None:
         self._config: Dict[int, Dict[str, Any]] = await self.config.all_guilds()
