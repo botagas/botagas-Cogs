@@ -1,7 +1,9 @@
 from typing import Any, Optional
-from .core import Captcha
 
 import discord
+
+from .core import Captcha
+
 
 def format_message(template: str, member: discord.Member) -> str:
     return template.format(
@@ -11,6 +13,7 @@ def format_message(template: str, member: discord.Member) -> str:
         guild=member.guild.name,
         id=member.id,
     )
+
 
 class CaptchaModal(discord.ui.Modal, title="Captcha Verification"):
     def __init__(self, cog: Any, user_id: int, expected_code: str):
@@ -83,7 +86,9 @@ class CaptchaVerifyButton(discord.ui.View):
 
         try:
             dm = await member.create_dm()
-            message_before = await self.cog.config.guild(interaction.guild).message_before_captcha()
+            message_before = await self.cog.config.guild(
+                interaction.guild
+            ).message_before_captcha()
             text = format_message(message_before, member)
             await dm.send(
                 content=text,
