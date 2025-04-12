@@ -43,13 +43,11 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             return await interaction.response.send_message(
                 "Invalid verification channel.", ephemeral=True
             )
-
         embed_text = await self.config.guild(guild).embed_text()
         embed = discord.Embed(
             description=format_message(embed_text, guild.me),
             color=discord.Color(0x34EB83),
         )
-
         view = CaptchaVerifyButton(self)
         await channel.send(embed=embed, view=view)
         await interaction.response.send_message("Verification message deployed.", ephemeral=True)
