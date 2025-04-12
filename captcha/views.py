@@ -1,5 +1,6 @@
-import discord
 from typing import Any, Optional
+
+import discord
 
 
 class CaptchaModal(discord.ui.Modal, title="Captcha Verification"):
@@ -42,7 +43,9 @@ class CaptchaSubmitView(discord.ui.View):
                 "This captcha isn't for you.", ephemeral=True
             )
 
-        await interaction.response.send_modal(CaptchaModal(self.cog, self.user_id, self.expected_code))
+        await interaction.response.send_modal(
+            CaptchaModal(self.cog, self.user_id, self.expected_code)
+        )
 
 
 class CaptchaVerifyButton(discord.ui.View):
@@ -88,5 +91,5 @@ class CaptchaVerifyButton(discord.ui.View):
                 ),
                 file=captcha_file,
                 ephemeral=True,
-                view=CaptchaSubmitView(self.cog, member.id, code)
+                view=CaptchaSubmitView(self.cog, member.id, code),
             )
