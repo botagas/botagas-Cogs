@@ -11,6 +11,21 @@ bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/R
 3. Install cog(s) from `botagas-Cogs` in your Red instance by using `[p]cog install botagas-Cogs <CogName>`
 4. Load the cog(s) by using `[p]load <cogName>`
 
+## Documentation
+### Roomer rework
+Roomer now supports slash commands with `/roomer`.
+Possible arguments are: `add <channel>`, `enable`, `disable`.
+Redundant (to be removed): `limit`, `name`, `remove`.
+
+It also has these new features:
+- A management embed with buttons is sent to the newly created voice channel. Currently supported modals are:
+  - **Lock** - lock the room for the @everyone role;
+  - **Unlock** - unlock the room for the @everyone role;
+  - **Rename** - change the title of the room;
+  - **Set Limit** - change the max amount of users that can be present in the room;
+  - **Claim Room** - become the manager / owner of the room (channel). 
+- Room features are only change-able by the creator of the channel.
+- If the creator is not present (has left), any other user inside or outside of the room can claim the room for themselves to manage it.
 
 ## Credits
 - Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot.
