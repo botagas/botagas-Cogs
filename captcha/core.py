@@ -100,7 +100,8 @@ class Captcha(
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
 
     def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
-        self._active_challenges[user_id] = code.upper()
+        self._active_challenges[user_id] = (code.upper(), guild_id)
+
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         pre_processed = super().format_help_for_context(ctx) or ""
@@ -377,9 +378,6 @@ class Captcha(
 
         self.cleanup_captcha_image(message.author.id)
         self._active_challenges.pop(message.author.id, None)
-
-    def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
-        self._active_challenges[user_id] = (code.upper(), guild_id)
 
     def generate_captcha_code(self) -> str:
         return "".join(random.choice(string.ascii_uppercase) for _ in range(6))
