@@ -54,7 +54,6 @@ def captcha_object() -> ModuleType:
 
 class Captcha(
     commands.Cog,
-    CaptchaCommands,
     metaclass=CompositeMetaClass,
 ):
     """Captcha cog."""
