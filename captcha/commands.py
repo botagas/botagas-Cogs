@@ -172,7 +172,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     )
                     await msg.edit(embed=embed)
             except Exception as e:
-                await ctx.send(f"Embed updated, but I couldn't update the deployed message: `{e}`")}")
+                await ctx.send(f"Embed updated, but I couldn't update the deployed message: `{e}`")
                 
     @_message.command(name="before")
     async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
