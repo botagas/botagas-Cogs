@@ -121,7 +121,7 @@ class Roomer(red_commands.Cog):
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
                 ),
-                view=ChannelControlView(new_channel, member.id),
+                view=ChannelControlView(new_channel, member.id, self),
             )
         except Exception:
             pass
@@ -129,7 +129,9 @@ class Roomer(red_commands.Cog):
         await self.schedule_deletion(new_channel)
 
     async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
+        await discord.utils.sleep_until(
+            discord.utils.utcnow() + timedelta(minutes=1)
+        )
         if len(channel.members) == 0:
             try:
                 await channel.delete(reason="Temporary voice channel expired")
@@ -138,16 +140,15 @@ class Roomer(red_commands.Cog):
 
 
 class ChannelControlView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel, owner_id: int):
+    def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
         self.channel = channel
         self.owner_id = owner_id
+        self.cog = cog
 
     async def _check_permissions(self, interaction: discord.Interaction):
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                "❌ You are not the owner of this voice channel.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ You are not the owner of this voice channel.", ephemeral=True)
             return False
         return True
 
@@ -187,19 +188,13 @@ class ChannelControlView(discord.ui.View):
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id == self.owner_id:
-            return await interaction.response.send_message(
-                "✅ You already own this room.", ephemeral=True
-            )
+            return await interaction.response.send_message("✅ You already own this room.", ephemeral=True)
         if self.channel.guild.get_member(self.owner_id) not in self.channel.members:
             self.owner_id = interaction.user.id
             self.cog.channel_owners[self.channel.id] = interaction.user.id
-            await interaction.response.send_message(
-                "✅ You have claimed ownership of this room.", ephemeral=True
-            )
+            await interaction.response.send_message("✅ You have claimed ownership of this room.", ephemeral=True)
         else:
-            await interaction.response.send_message(
-                "❌ The current owner is still in the room.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ The current owner is still in the room.", ephemeral=True)
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
@@ -223,7 +218,7 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         label="User Limit (leave blank for unlimited)",
         placeholder="e.g. 5",
         required=False,
-        max_length=3,
+        max_length=3
     )
 
     def __init__(self, channel):
