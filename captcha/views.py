@@ -1,8 +1,6 @@
-# views.py
-from typing import Optional
-
+from typing import Any, Optional
+from pathlib import Path
 import discord
-
 
 class CaptchaVerifyButton(discord.ui.View):
     def __init__(self, cog: Any, timeout: Optional[float] = None):
