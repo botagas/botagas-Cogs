@@ -384,6 +384,16 @@ class Captcha(
 
 
     async def _on_captcha_success(self, member: discord.Member, source: discord.Interaction | discord.Message):
+        # Remove unverified role
+        unverified_id = await self.config.guild(member.guild).role_before_captcha()
+        unverified = member.guild.get_role(unverified_id) if unverified_id else None
+        if unverified:
+            try:
+                await member.remove_roles(unverified, reason="Captcha passed - removing unverified role")
+            except discord.Forbidden:
+                pass
+
+        # Add verified role
         role_id = await self.config.guild(member.guild).role_after_captcha()
         role = member.guild.get_role(role_id) if role_id else None
         if role:
