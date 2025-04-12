@@ -83,8 +83,8 @@ class Captcha(
             "tries": 3,
             "role_before_captcha": None,
             "role_after_captcha": None,
-            "message_before_captcha": message_before_captcha_string,
-            "message_after_captcha": message_after_captcha_string,
+            "message_before_captcha": "{mention}, please solve the captcha below.",
+            "message_after_captcha": "✅ {mention}, you passed the captcha!",
         }
         self.config.register_guild(**default_guild)
 
