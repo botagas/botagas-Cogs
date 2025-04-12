@@ -1,5 +1,4 @@
 from datetime import timedelta
-
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -25,6 +24,7 @@ class Roomer(red_commands.Cog):
             name="Voice Room",
             user_limit=None,
         )
+        self.channel_owners = {}
 
     async def red_delete_data_for_user(self, **kwargs):
         return
@@ -83,7 +83,11 @@ class Roomer(red_commands.Cog):
     @roomer.command(name="limit")
     @red_commands.has_permissions(administrator=True)
     async def set_limit(self, ctx: red_commands.Context, limit: int = 0):
-        """Set user limit for auto-created voice channels (0 = no limit)."""
+        """Set user limit for auto-created voice channels (0 = no limit)."
+        Max limit is 99.
+        """
+        if limit > 99:
+            limit = 99
         await self.config.guild(ctx.guild).user_limit.set(limit)
         await ctx.send(f"User limit set to {limit}.")
 
@@ -102,12 +106,13 @@ class Roomer(red_commands.Cog):
         new_channel = await category.create_voice_channel(
             settings["name"],
             overwrites=after.channel.overwrites,
-            user_limit=settings["user_limit"] or 0,
+            user_limit=min(settings["user_limit"] or 0, 99),
             reason="Auto voice channel creation",
         )
         await member.move_to(new_channel, reason="Moved to new voice room")
 
-        # Send embed to the voice channel's associated text chat
+        self.channel_owners[new_channel.id] = member.id
+
         try:
             await new_channel.send(
                 embed=discord.Embed(
@@ -115,37 +120,40 @@ class Roomer(red_commands.Cog):
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
                 ),
-                view=ChannelControlView(new_channel),
+                view=ChannelControlView(new_channel, member.id),
             )
         except Exception:
             pass
 
         await self.schedule_deletion(new_channel)
 
-    async def cog_command_error(self, ctx: red_commands.Context, error):
-        if isinstance(error, red_commands.CheckFailure):
-            if ctx.interaction:
-                await ctx.interaction.response.send_message(
-                    "🚫 You do not have permission to use this command.", ephemeral=True
-                )
-            else:
-                await ctx.send("🚫 You do not have permission to use this command.")
-        else:
-            raise error  # Let Red handle anything else
-
     async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
+        await discord.utils.sleep_until(
+            discord.utils.utcnow() + timedelta(minutes=1)
+        )
         if len(channel.members) == 0:
-            await channel.delete(reason="Temporary voice channel expired")
+            try:
+                await channel.delete(reason="Temporary voice channel expired")
+            except discord.NotFound:
+                pass
 
 
 class ChannelControlView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel):
+    def __init__(self, channel: discord.VoiceChannel, owner_id: int):
         super().__init__(timeout=None)
         self.channel = channel
+        self.owner_id = owner_id
+
+    async def _check_permissions(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("❌ You are not the owner of this voice channel.", ephemeral=True)
+            return False
+        return True
 
     @discord.ui.button(label="🔒 Lock", style=discord.ButtonStyle.danger)
     async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         overwrites = self.channel.overwrites
         overwrites[self.channel.guild.default_role] = discord.PermissionOverwrite(connect=False)
         await self.channel.edit(overwrites=overwrites)
@@ -153,6 +161,8 @@ class ChannelControlView(discord.ui.View):
 
     @discord.ui.button(label="🔓 Unlock", style=discord.ButtonStyle.success)
     async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         overwrites = self.channel.overwrites
         if self.channel.guild.default_role in overwrites:
             del overwrites[self.channel.guild.default_role]
@@ -161,11 +171,15 @@ class ChannelControlView(discord.ui.View):
 
     @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         modal = RenameModal(self.channel)
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="👥 Set Limit", style=discord.ButtonStyle.secondary)
     async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         modal = LimitModal(self.channel)
         await interaction.response.send_modal(modal)
 
@@ -191,7 +205,7 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         label="User Limit (leave blank for unlimited)",
         placeholder="e.g. 5",
         required=False,
-        max_length=3,
+        max_length=3
     )
 
     def __init__(self, channel):
@@ -201,6 +215,7 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             value = int(self.limit.value) if self.limit.value else 0
+            value = min(value, 99)
             await self.channel.edit(user_limit=value)
             await interaction.response.send_message(
                 f"✅ User limit set to **{value or 'unlimited'}**.", ephemeral=True
