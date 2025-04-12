@@ -112,49 +112,49 @@ class Captcha(
         ]
         return "\n".join(text)
 
-async def _initialize(self) -> None:
-    await self.bot.wait_until_red_ready()
-    await self._build_cache()
+    async def _initialize(self) -> None:
+        await self.bot.wait_until_red_ready()
+        await self._build_cache()
 
-    for guild_id, data in self._config.items():
-        if not data.get("toggle"):
-            continue
-
-        channel_id = data.get("channel")
-        if not channel_id:
-            continue
-
-        guild = self.bot.get_guild(guild_id)
-        if not guild:
-            continue
-
-        channel = guild.get_channel(channel_id)
-        if not isinstance(channel, discord.TextChannel):
-            continue
-
-        captcha_info = await self.config.guild_from_id(guild_id).captcha_message()
-        if captcha_info:
-            try:
-                message = await channel.fetch_message(captcha_info["message_id"])
-                await message.edit(view=None)
-
-                embed = discord.Embed(
-                    description="Click the green button below to verify.",
-                    color=discord.Color.green(),
-                )
-                view = CaptchaVerifyButton(self)
-                new_msg = await channel.send(embed=embed, view=view)
-
-                await self.config.guild(guild).captcha_message.set({
-                    "channel_id": channel.id,
-                    "message_id": new_msg.id,
-                })
-
-                self.bot.add_view(view)
+        for guild_id, data in self._config.items():
+            if not data.get("toggle"):
                 continue
-            except discord.NotFound:
-                pass
-        log.warning(f"[captcha] No active captcha message in {guild.name}, skipped deployment.")
+
+            channel_id = data.get("channel")
+            if not channel_id:
+                continue
+
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                continue
+
+            channel = guild.get_channel(channel_id)
+            if not isinstance(channel, discord.TextChannel):
+                continue
+
+            captcha_info = await self.config.guild_from_id(guild_id).captcha_message()
+            if captcha_info:
+                try:
+                    message = await channel.fetch_message(captcha_info["message_id"])
+                    await message.edit(view=None)
+
+                    embed = discord.Embed(
+                        description="Click the green button below to verify.",
+                        color=discord.Color.green(),
+                    )
+                    view = CaptchaVerifyButton(self)
+                    new_msg = await channel.send(embed=embed, view=view)
+
+                    await self.config.guild(guild).captcha_message.set({
+                        "channel_id": channel.id,
+                        "message_id": new_msg.id,
+                    })
+
+                    self.bot.add_view(view)
+                    continue
+                except discord.NotFound:
+                    pass
+            log.warning(f"[captcha] No active captcha message in {guild.name}, skipped deployment.")
 
     async def _build_cache(self) -> None:
         self._config: Dict[int, Dict[str, Any]] = await self.config.all_guilds()
