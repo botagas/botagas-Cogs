@@ -74,9 +74,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Toggle the captcha verification system.
         """
         await self.config.guild(ctx.guild).toggle.set(toggle)
-        await ctx.send(
-            f"Captcha verification is now {'enabled' if toggle else 'disabled'}.",
-        )
+        await ctx.send(f"Captcha verification is now {'enabled' if toggle else 'disabled'}.")
 
     @_captcha.command(name="channel")
     async def _channel(
@@ -93,9 +91,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the captcha verification channel.")
             return
         await self.config.guild(ctx.guild).channel.set(channel.id)
-        await ctx.send(
-            f"Configured the captcha verification channel to {channel.name} ({channel.id})."
-        )
+        await ctx.send(f"Configured the captcha verification channel to {channel.name} ({channel.id}).")
 
     @_captcha.command(name="unverifiedrole")
     async def _unverifiedrole(
@@ -111,9 +107,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the unverified role.")
             return
         await self.config.guild(ctx.guild).role_before_captcha.set(role.id)
-        await ctx.send(
-            f"Configured the unverified role to {role.name} ({role.id}).",
-        )
+        await ctx.send(f"Configured the unverified role to {role.name} ({role.id}).")
 
     @_captcha.command(name="role")
     async def _role(self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None):
@@ -128,9 +122,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the captcha verification role.")
             return
         await self.config.guild(ctx.guild).role_after_captcha.set(role.id)
-        await ctx.send(
-            f"Configured the captcha verification role to {role.name} ({role.id}).",
-        )
+        await ctx.send(f"Configured the captcha verification role to {role.name} ({role.id}).")
 
     @_captcha.command(name="timeout")
     async def _timeout(self, ctx: commands.GuildContext, amount: commands.Range[int, 50, 300]):
@@ -138,9 +130,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Configure the timeout for captcha verification. (Defaults to 120 seconds.)
         """
         await self.config.guild(ctx.guild).timeout.set(amount)
-        await ctx.send(
-            f"Configured the timeout for captcha verification to {amount}.",
-        )
+        await ctx.send(f"Configured the timeout for captcha verification to {amount}.")
 
     @_captcha.command(name="tries")
     async def _tries(self, ctx: commands.GuildContext, amount: commands.Range[int, 2, 10]):
@@ -148,9 +138,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Configure the amount of tries needed for the captcha verification. (Defaults to 3 tries.)
         """
         await self.config.guild(ctx.guild).tries.set(amount)
-        await ctx.send(
-            f"Configured the amount of tries needed for the captcha verification to {amount}."
-        )
+        await ctx.send(f"Configured the amount of tries needed for the captcha verification to {amount}.")
 
     @_captcha.group(name="message")
     async def _message(self, _: commands.GuildContext):
@@ -175,8 +163,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the before captcha message.")
             return
         await self.config.guild(ctx.guild).message_before_captcha.set(message)
-        await ctx.send(f"✅ Updated before captcha message:
-{box(message, lang='yaml')}")
+        await ctx.send(f"✅ Updated before captcha message:\n{box(message, lang='yaml')}")
 
     @_message.command(name="after")
     async def _after(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
@@ -189,8 +176,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the after captcha message.")
             return
         await self.config.guild(ctx.guild).message_after_captcha.set(message)
-        await ctx.send(f"✅ Updated after captcha message:
-{box(message, lang='yaml')}")
+        await ctx.send(f"✅ Updated after captcha message:\n{box(message, lang='yaml')}")
 
     @commands.bot_has_permissions(embed_links=True)
     @_captcha.command(name="settings", aliases=["showsettings", "show", "ss"])
