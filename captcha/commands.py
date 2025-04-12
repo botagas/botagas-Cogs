@@ -13,6 +13,7 @@ from .views import CaptchaVerifyButton
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
