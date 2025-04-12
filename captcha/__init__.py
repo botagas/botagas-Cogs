@@ -24,6 +24,7 @@ SOFTWARE.
 from redbot.core.bot import Red
 from .core import Captcha
 
+
 async def setup(bot: Red) -> None:
     cog = Captcha(bot)
     await bot.add_cog(cog)
