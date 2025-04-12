@@ -16,7 +16,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         super().__init__()
         self.bot = bot
 
-        captcha.command_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+        captcha.command_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
 
     @captcha_command.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
@@ -144,7 +146,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     ephemeral=True,
                 )
 
-    @captcha_command.command(name="settings", description="View the current captcha configuration.")
+    @captcha_command.command(
+        name="settings", description="View the current captcha configuration."
+    )
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -182,7 +186,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @captcha_command.command(name="channel", description="Set the channel for captcha verification.")
+    @captcha_command.command(
+        name="channel", description="Set the channel for captcha verification."
+    )
     @app_commands.default_permissions(administrator=True)
     async def channel(
         self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]
