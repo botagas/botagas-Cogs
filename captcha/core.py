@@ -52,7 +52,7 @@ log: logging.Logger = logging.getLogger("red.seina.captcha")
 
 
 def captcha_object() -> ModuleType:
-    from captcha import objects
+    from . import objects
 
     return objects
 
