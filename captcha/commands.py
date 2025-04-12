@@ -14,9 +14,9 @@ from .views import CaptchaVerifyButton
 class CaptchaCommands(commands.Cog, MixinMeta, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
 
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: Red):
         super().__init__()
-        self.bot = bot
+        self.bot = Red = bot
         self.bot.tree.add_command(self.captcha_group)
 
     @captcha_group.command(name="deploy", description="Deploy the verification message")
