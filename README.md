@@ -1,9 +1,7 @@
 # botagas-Cogs V3
 
-[![Red-DiscordBot](https://img.shields.io/badge/Red--DiscordBot-V3-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot) [![Discord.py](https://img.shields.io/badge/Discord.py-rewrite-blue.svg)](https://github.com/Rapptz/discord.py/tree/rewrite) [![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/botagas/botagas-Cogs/blob/main/LICENSE)
+[![Red-DiscordBot](https://img.shields.io/badge/Red--DiscordBot-V3-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot) [![License](https://img.shields.io/badge/License-MIT-blue)](https://github.com/botagas/botagas-Cogs/blob/main/LICENSE)
 [![Docs](https://img.shields.io/badge/DOCS-up-green.svg)](https://cogs.melonbot.io/) [![CodeQL](https://github.com/botagas/botagas-Cogs/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/codeql-analysis.yml) [![Linting](https://github.com/botagas/botagas-Cogs/actions/workflows/tests.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/tests.yml) 
-![GitHub repo file or directory count](https://img.shields.io/github/directory-file-count/botagas/botagas-Cogs) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/botagas/botagas-Cogs) ![GitHub repo size](https://img.shields.io/github/repo-size/botagas/botagas-Cogs)
-[![GitHub Repo stars](https://img.shields.io/github/stars/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/stargazers) [![GitHub forks](https://img.shields.io/github/forks/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/forks)
 
 bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/). Initially forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) for Captcha rework, later expanded with Roomer from [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs) by implementing slash-command support. Credit goes to the original authors for their efforts and code to be reworked, improved and built upon.
 
