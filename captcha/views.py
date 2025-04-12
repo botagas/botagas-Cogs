@@ -74,9 +74,11 @@ class CaptchaVerifyButton(discord.ui.View):
 
         try:
             dm = await member.create_dm()
+            message_before = await self.cog.config.guild(interaction.guild).message_before_captcha()
+            text = self.cog.format_message(message_before, member)
             await dm.send(
-                content="Please solve the captcha below and reply here with the code:",
-                file=discord.File(image_fp),  # FIRST use
+                content=text,
+                file=discord.File(image_fp),
             )
             await interaction.response.send_message(
                 "📩 I've sent you a DM with your captcha. Please reply there.",

@@ -365,7 +365,9 @@ class Captcha(
             except discord.Forbidden:
                 pass
 
-        text = "✅ You passed the captcha! Welcome."
+        message_after = await self.config.guild(member.guild).message_after_captcha()
+        text = self.format_message(message_after, member)
+
         if isinstance(source, discord.Interaction):
             if source.response.is_done():
                 await source.followup.send(text, ephemeral=True)
