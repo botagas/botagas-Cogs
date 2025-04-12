@@ -51,7 +51,7 @@ def captcha_object() -> ModuleType:
 
     return objects
 
-        )
+    )
 
 class Captcha(commands.Cog, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
