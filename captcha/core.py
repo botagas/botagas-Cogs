@@ -115,6 +115,29 @@ class Captcha(
     async def _initialize(self) -> None:
         await self.bot.wait_until_red_ready()
         await self._build_cache()
+        
+        for guild_id, data in self._config.items():
+            if not data["toggle"]:
+                continue
+
+            captcha_info = await self.config.guild_from_id(guild_id).captcha_message()
+            if not captcha_info:
+                continue
+
+            guild = self.bot.get_guild(guild_id)
+            if not guild:
+                continue
+
+            channel = guild.get_channel(captcha_info["channel_id"])
+            if not isinstance(channel, discord.TextChannel):
+                continue
+
+            try:
+                # Reattach the view to the existing message
+                self.bot.add_view(CaptchaVerifyButton(self), message_id=captcha_info["message_id"])
+            except Exception as e:
+                # Optionally log or clean config
+                pass
 
     async def _build_cache(self) -> None:
         self._config: Dict[int, Dict[str, Any]] = await self.config.all_guilds()
