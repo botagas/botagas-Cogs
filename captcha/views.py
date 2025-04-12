@@ -1,16 +1,7 @@
 from typing import Any, Optional
+from .format import format_message
 
 import discord
-
-
-def format_message(template: str, member: discord.Member) -> str:
-    return template.format(
-        mention=member.mention,
-        name=member.display_name,
-        username=member.name,
-        guild=member.guild.name,
-        id=member.id,
-    )
 
 
 class CaptchaModal(discord.ui.Modal, title="Captcha Verification"):

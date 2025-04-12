@@ -169,7 +169,7 @@ class Captcha(
 
         color: discord.Color = await self.bot.get_embed_color(channel)
 
-        text = self.format_message(message_before_captcha, member)
+        text = format_message(message_before_captcha, member)
         temp_captcha = await channel.send(content=text, file=captcha_file)
 
         self._captchas[member.id] = temp_captcha

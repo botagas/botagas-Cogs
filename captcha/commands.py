@@ -28,11 +28,9 @@ import discord
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
-
-from ._tagscript import TagscriptConverter
 from .abc import CompositeMetaClass, MixinMeta
 from .views import CaptchaVerifyButton
-
+from .format import format_message
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     @commands.guild_only()
@@ -168,7 +166,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     msg = await channel.fetch_message(captcha_info["message_id"])
                     embed = discord.Embed(
                         description=self.format_message(message, ctx.guild.me),
-                        color=discord.Color.green(),
+                        color=discord.Color(0x34EB83),
                     )
                     await msg.edit(embed=embed)
             except Exception as e:
