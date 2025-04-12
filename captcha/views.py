@@ -2,9 +2,6 @@ from typing import Any, Optional
 
 import discord
 
-from .core import Captcha
-
-
 def format_message(template: str, member: discord.Member) -> str:
     return template.format(
         mention=member.mention,
