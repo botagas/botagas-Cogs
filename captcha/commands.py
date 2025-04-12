@@ -17,16 +17,6 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         self.bot = bot
 
         self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
-        self.tree_group.add_command(self.deploy)
-        self.tree_group.add_command(self.toggle)
-        self.tree_group.add_command(self.unverifiedrole)
-        self.tree_group.add_command(self.role)
-        self.tree_group.add_command(self.timeout)
-        self.tree_group.add_command(self.tries)
-        self.tree_group.add_command(self.embed)
-        self.tree_group.add_command(self.settings)
-        self.tree_group.add_command(self.reset)
-        self.tree_group.add_command(self.channel)
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
