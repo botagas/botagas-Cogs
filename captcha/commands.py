@@ -91,7 +91,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Cleared the captcha verification channel.")
             return
         await self.config.guild(ctx.guild).channel.set(channel.id)
-        await ctx.send(f"Configured the captcha verification channel to {channel.name} ({channel.id}).")
+        await ctx.send(
+            f"Configured the captcha verification channel to {channel.name} ({channel.id})."
+        )
 
     @_captcha.command(name="unverifiedrole")
     async def _unverifiedrole(
@@ -138,7 +140,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         Configure the amount of tries needed for the captcha verification. (Defaults to 3 tries.)
         """
         await self.config.guild(ctx.guild).tries.set(amount)
-        await ctx.send(f"Configured the amount of tries needed for the captcha verification to {amount}.")
+        await ctx.send(
+            f"Configured the amount of tries needed for the captcha verification to {amount}."
+        )
 
     @_captcha.group(name="message")
     async def _message(self, _: commands.GuildContext):
@@ -235,4 +239,3 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             await ctx.send("Successfully reset all the captcha settings back to default.")
         else:
             await ctx.send("Cancelled, I wont reset the captcha settings.")
-
