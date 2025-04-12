@@ -16,7 +16,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         super().__init__()
         self.bot = bot
 
-        self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
         self.tree_group.add_command(self.deploy)
         self.tree_group.add_command(self.toggle)
         self.tree_group.add_command(self.unverifiedrole)
