@@ -179,7 +179,6 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                     ephemeral=True,
                 )
 
-
     @captcha_group.command(name="settings", description="View the current captcha configuration.")
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
