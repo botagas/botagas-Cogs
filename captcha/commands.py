@@ -15,7 +15,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        
+
         captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
         self.bot.tree.add_command(captcha_group)
 
