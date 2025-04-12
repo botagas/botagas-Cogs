@@ -1,5 +1,4 @@
 from typing import Any, Optional
-from .core import Captcha
 
 import discord
 
