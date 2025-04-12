@@ -112,6 +112,7 @@ class Captcha(
         ]
         return "\n".join(text)
 
+
 async def _initialize(self) -> None:
     await self.bot.wait_until_red_ready()
     await self._build_cache()
@@ -145,10 +146,12 @@ async def _initialize(self) -> None:
                 view = CaptchaVerifyButton(self)
                 new_msg = await channel.send(embed=embed, view=view)
 
-                await self.config.guild(guild).captcha_message.set({
-                    "channel_id": channel.id,
-                    "message_id": new_msg.id,
-                })
+                await self.config.guild(guild).captcha_message.set(
+                    {
+                        "channel_id": channel.id,
+                        "message_id": new_msg.id,
+                    }
+                )
 
                 self.bot.add_view(view)
                 continue
