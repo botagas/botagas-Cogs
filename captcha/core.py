@@ -35,6 +35,7 @@ import discord
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.data_manager import bundled_data_path
+
 from .abc import CompositeMetaClass
 from .commands import CaptchaCommands
 from .objects import CaptchaObj
