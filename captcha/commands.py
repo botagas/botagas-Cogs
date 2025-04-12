@@ -12,12 +12,10 @@ from .views import CaptchaVerifyButton
 
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
+    captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        captcha_group = app_commands.Group(
-            name="captcha", description="Manage Captcha settings."
-        )
 
     @captcha_group.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
