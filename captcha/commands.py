@@ -33,6 +33,7 @@ from ._tagscript import TagscriptConverter
 from .abc import CompositeMetaClass, MixinMeta
 from .views import CaptchaVerifyButton
 
+
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     @commands.guild_only()
     @commands.group(name="captcha")  # type: ignore
