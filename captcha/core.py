@@ -115,7 +115,7 @@ class Captcha(
     async def _initialize(self) -> None:
         await self.bot.wait_until_red_ready()
         await self._build_cache()
-        
+
         for guild_id, data in self._config.items():
             if not data["toggle"]:
                 continue
