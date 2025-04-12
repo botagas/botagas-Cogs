@@ -5,11 +5,11 @@
 ![GitHub repo file or directory count](https://img.shields.io/github/directory-file-count/botagas/botagas-Cogs) ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/botagas/botagas-Cogs) ![GitHub repo size](https://img.shields.io/github/repo-size/botagas/botagas-Cogs)
 [![GitHub Repo stars](https://img.shields.io/github/stars/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/stargazers) [![GitHub forks](https://img.shields.io/github/forks/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/forks)
 
-~~Lemon's [Approved Cogs](https://cogboard.discord.red/t/approved-botagas-cogs/) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/).~~
+bitasid's [Unapproved Cogs](https://cogboard.discord.red/t/botagas-cogs/1319) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/).
 
 
 > [!TIP]
-> For support join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server, ~~and find me [`@Winter`](https://discordapp.com/users/326866295150739457) in my support channel [`#support_botagas-cogs`](https://discord.com/channels/240154543684321280/1166073721056931890).~~
+> For support join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server, and find me [`@Winter`](https://discordapp.com/users/326866295150739457) in my support channel [`#support_botagas-cogs`](https://discord.com/channels/240154543684321280/1166073721056931890).
 
 
 ## Installation
