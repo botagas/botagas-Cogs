@@ -57,7 +57,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         channel = ctx.guild.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
             return await ctx.send("Invalid verification channel.")
-        
+
         embed_text = await self.config.guild(ctx.guild).embed_text()
         embed = discord.Embed(
             description=format_message(embed_text, ctx.guild.me),
