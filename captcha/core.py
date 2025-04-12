@@ -327,66 +327,59 @@ class Captcha(
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        if message.guild is None:
-            return
-        if message.is_system():
-            return
-        if await self.bot.cog_disabled_in_guild(self, message.guild):
-            return
-        if not await self.config.guild(message.guild).toggle():
+        if message.guild is not None or message.author.bot:
             return
 
-        if (
-            not message.guild.me.guild_permissions.kick_members
-            or not message.guild.me.guild_permissions.manage_roles
-            or not message.guild.me.guild_permissions.embed_links
-            or not message.guild.me.guild_permissions.attach_files
-        ):
-            await self.config.guild(message.guild).toggle.set(False)
-            log.info("Disabled captcha verification due to missing permissions.")
-            return
+        code = self._active_challenges.get(message.author.id)
+        if not code:
+            return  # No active challenge
 
-        member: discord.Member = message.author  # type: ignore
+        if message.content.strip().upper() == code:
+            await self._on_captcha_success(message.author, message)
+        else:
+            await self._on_captcha_failure(message.author, message)
 
-        if not await self.bot.allowed_by_whitelist_blacklist(member):
-            return
+        self.cleanup_captcha_image(message.author.id)
+        self._active_challenges.pop(message.author.id, None)
 
-        verification_channel: int = await self.config.guild(message.guild).channel()
-        if not verification_channel:
-            return
 
-        # fmt: off
-        if (
-            member.id in self._verification_phase 
-            and message.channel.id == verification_channel
-        ):
-            self._verification_phase[member.id] += 1
-            self._user_tries[member.id].append(message)
+    def generate_captcha_code(self) -> str:
+        return "".join(random.choice(string.ascii_uppercase) for _ in range(6))
 
-            tries: int = await self.config.guild(message.guild).tries()
 
-            if self._verification_phase[member.id] >= tries:
-                await member.kick(
-                    reason=f"{member.id} failed to complete the captcha verification!"
-                )
-                
-                try:
-                    for user_try in self._user_tries[member.id]:
-                        await user_try.delete()
-                except KeyError:
-                    pass
+    def save_captcha_image(self, code: str, user_id: int) -> str:
+        path = os.path.join(str(self.data_path), f"{user_id}.png")
+        captcha = CaptchaObj(self, width=300, height=100)
+        captcha.write(code, path)
+        return path
 
-                try:
-                    await self._captchas[member.id].delete()
-                    del self._captchas[member.id]
-                except KeyError:
-                    pass
 
-                try:
-                    del self._verification_phase[member.id]
-                except KeyError:
-                    pass
+    def cleanup_captcha_image(self, user_id: int):
+        path = os.path.join(str(self.data_path), f"{user_id}.png")
+        if os.path.exists(path):
+            os.remove(path)
 
-                os.remove(f"{str(self.data_path)}/{member.id}.png")
-                del self._user_tries[member.id]
-        # fmt: on
+
+    async def _on_captcha_success(self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]):
+        role_id = await self.config.guild(member.mutual_guilds[0]).role_after_captcha()
+        role = member.mutual_guilds[0].get_role(role_id) if role_id else None
+        if role and isinstance(member, discord.Member):
+            try:
+                await member.add_roles(role, reason="Captcha passed")
+            except discord.Forbidden:
+                pass
+
+        text = "✅ You passed the captcha! Welcome."
+        if isinstance(source, discord.Interaction):
+            await source.followup.send(text, ephemeral=True)
+        else:
+            await source.channel.send(text)
+
+
+    async def _on_captcha_failure(self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]):
+        text = "❌ Incorrect captcha. Please try again or contact an admin."
+        if isinstance(source, discord.Interaction):
+            await source.followup.send(text, ephemeral=True)
+        else:
+            await source.channel.send(text)
+

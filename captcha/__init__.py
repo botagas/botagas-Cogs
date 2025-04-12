@@ -34,6 +34,10 @@ from ._tagscript import validate_tagscriptengine
 from .core import Captcha
 
 VERSION_RE: Pattern[str] = re.compile(r"AdvancedTagScriptEngine==(\d\.\d\.\d)")
+self._active_challenges: Dict[int, str] = {}
+
+def register_active_challenge(self, user_id: int, code: str) -> None:
+    self._active_challenges[user_id] = code.upper()
 
 with open(Path(__file__).parent / "info.json") as f:
     data = json.load(f)
