@@ -47,7 +47,6 @@ class CaptchaSubmitView(discord.ui.View):
             CaptchaModal(self.cog, self.user_id, self.expected_code)
         )
 
-
 class CaptchaVerifyButton(discord.ui.View):
     def __init__(self, cog: Any, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
@@ -71,13 +70,12 @@ class CaptchaVerifyButton(discord.ui.View):
         code = self.cog.generate_captcha_code()
         self.cog.register_active_challenge(member.id, code, interaction.guild.id)
         image_fp = self.cog.save_captcha_image(code, member.id)
-        captcha_file = discord.File(image_fp)
 
         try:
             dm = await member.create_dm()
             await dm.send(
                 content="Please solve the captcha below and reply here with the code:",
-                file=captcha_file,
+                file=discord.File(image_fp)  # FIRST use
             )
             await interaction.response.send_message(
                 "📩 I've sent you a DM with your captcha. Please reply there.",
@@ -89,7 +87,7 @@ class CaptchaVerifyButton(discord.ui.View):
                     "⚠️ I couldn't DM you — likely due to disabled DMs.\n"
                     "Solve the captcha below and click the button to submit."
                 ),
-                file=captcha_file,
+                file=discord.File(image_fp),  # NEW instance
                 ephemeral=True,
-                view=CaptchaSubmitView(self.cog, member.id, code),
+                view=CaptchaSubmitView(self.cog, member.id, code)
             )
