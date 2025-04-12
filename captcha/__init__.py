@@ -28,5 +28,12 @@ from .core import Captcha
 
 
 async def setup(bot: Red) -> None:
+    # Check if the "captcha" group already exists in the bot's app command tree
+    existing_group = bot.tree.get_command("captcha")
+    if existing_group:
+        # Remove the existing group to prevent duplicate registration
+        bot.tree.remove_command("captcha")
+
+    # Add the cog to the bot
     cog = Captcha(bot)
     await bot.add_cog(cog)
