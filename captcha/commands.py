@@ -2,8 +2,8 @@ from typing import Any, Dict, Optional
 
 import discord
 import discord.app_commands as app_commands
-from redbot.core.bot import Red
 from redbot.core import commands
+from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
 
