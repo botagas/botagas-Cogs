@@ -25,6 +25,7 @@ SOFTWARE.
 from redbot.core.bot import Red
 
 from .core import Captcha
+from .commands import CaptchaCommands
 
 
 async def setup(bot: Red) -> None:
