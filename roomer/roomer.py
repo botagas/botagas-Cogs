@@ -187,21 +187,22 @@ class ChannelControlView(discord.ui.View):
 
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id == self.owner_id:
-            return await interaction.response.send_message(
-                "✅ You already own this room.", ephemeral=True
-            )
-        if self.channel.guild.get_member(self.owner_id) not in self.channel.members:
-            self.owner_id = interaction.user.id
-            self.cog.channel_owners[self.channel.id] = interaction.user.id
-            await interaction.response.send_message(
-                "✅ You have claimed ownership of this room.", ephemeral=True
-            )
-        else:
-            await interaction.response.send_message(
-                "❌ The current owner is still in the room.", ephemeral=True
-            )
+        try:
+            cog = self.cog
+            current_owner_id = cog.channel_owners.get(self.channel.id)
+            if current_owner_id == interaction.user.id:
+                await interaction.response.send_message("✅ You already own this room.", ephemeral=True)
+                return
 
+            current_owner = self.channel.guild.get_member(current_owner_id)
+            if not current_owner or current_owner not in self.channel.members:
+                self.owner_id = interaction.user.id
+                cog.channel_owners[self.channel.id] = interaction.user.id
+                await interaction.response.send_message("✅ You have claimed ownership of this room.", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ The current owner is still in the room.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Claim failed: {e}", ephemeral=True)
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
