@@ -28,7 +28,8 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         self.tree_group.add_command(self.reset)
         self.tree_group.add_command(self.channel)
 
-        self.bot.tree.add_command(self.tree_group)
+        if not self.bot.tree.get_command("captcha"):
+            self.bot.tree.add_command(self.tree_group)
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
