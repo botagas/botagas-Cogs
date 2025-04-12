@@ -10,13 +10,14 @@ from .abc import CompositeMetaClass, MixinMeta
 from .format import format_message
 from .views import CaptchaVerifyButton
 
+captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
         
-        captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
         self.bot.tree.add_command(captcha_group)
 
     @captcha_group.command(name="deploy", description="Deploy the verification message")
