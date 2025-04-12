@@ -46,7 +46,7 @@ DELETE_AFTER: Final[int] = 10
 log: logging.Logger = logging.getLogger("red.seina.captcha")
 
 class Captcha(commands.Cog, metaclass=CompositeMetaClass):
-    captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+    captcha_group = app_commands.Group(name="captcher", description="Manage Captcha settings.")
     """Captcha cog."""
 
     __author__: Final[List[str]] = ["inthedark.org"]
