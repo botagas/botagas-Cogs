@@ -8,7 +8,7 @@ bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/R
 > Substitute `[p]` for your prefix.
 1. Load downloader by using `[p]load downloader`
 2. Add `botagas-Cogs` to your Red instance by using `[p]repo add botagas-Cogs https://github.com/botagas/botagas-Cogs`
-3. Install cog(s) from `botagas-Cogs` in your Red instance `[p]cog install botagas-Cogs <CogName>`
+3. Install cog(s) from `botagas-Cogs` in your Red instance by using `[p]cog install botagas-Cogs <CogName>`
 4. Load the cog(s) by using `[p]load <cogName>`
 
 
