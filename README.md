@@ -6,6 +6,7 @@
 [![GitHub Repo stars](https://img.shields.io/github/stars/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/stargazers) [![GitHub forks](https://img.shields.io/github/forks/botagas/botagas-Cogs?style=plastic&color=%23696969)](https://github.com/botagas/botagas-Cogs/forks)
 
 bitasid's [Unapproved Cogs](https://cogboard.discord.red/t/botagas-cogs/1319) for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot/).
+Initially forked from Seina-Cogs for Captcha rework, later expanded with Roomer by implementing slash-command support.
 
 
 > [!TIP]
