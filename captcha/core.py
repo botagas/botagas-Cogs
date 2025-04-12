@@ -32,16 +32,9 @@ from types import ModuleType
 from typing import Any, Dict, Final, List, Optional, Union
 
 import discord
-import TagScriptEngine as tse
 from redbot.core import Config, commands
 from redbot.core.bot import Red
 from redbot.core.data_manager import bundled_data_path
-
-from ._tagscript import TAGSCRIPT_LIMIT as TAGSCRIPT_LIMIT
-from ._tagscript import TagCharacterLimitReached as TagCharacterLimitReached
-from ._tagscript import message_after_captcha as message_after_captcha_string
-from ._tagscript import message_before_captcha as message_before_captcha_string
-from ._tagscript import process_tagscript as process_tagscript
 from .abc import CompositeMetaClass
 from .commands import CaptchaCommands
 from .objects import CaptchaObj
@@ -85,6 +78,7 @@ class Captcha(
             "role_after_captcha": None,
             "message_before_captcha": "{mention}, please solve the captcha below.",
             "message_after_captcha": "✅ {mention}, you passed the captcha!",
+            "embed_text": "Click the green button below to verify.",
         }
         self.config.register_guild(**default_guild)
 

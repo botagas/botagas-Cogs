@@ -149,6 +149,16 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         """
         Configure the after and before messages.
         """
+        
+    @_message.command(name="embed")
+    async def _embed(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
+        """Set the text shown in the verification embed."""
+        if message is None:
+            await self.config.guild(ctx.guild).embed_text.clear()
+            await ctx.send("Cleared the embed message.")
+            return
+        await self.config.guild(ctx.guild).embed_text.set(message)
+        await ctx.send(f"✅ Updated embed message:\n{box(message, lang='yaml')}")
 
     @_message.command(name="before")
     async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
@@ -202,6 +212,11 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         embed.add_field(
             name="Before Captcha Message:",
             value=box(str(data["message_before_captcha"]), lang="json"),
+            inline=False,
+        )
+        embed.add_field(
+            name="Embed Text:",
+            value=box(str(data["embed_text"]), lang="json"),
             inline=False,
         )
         embed.add_field(
