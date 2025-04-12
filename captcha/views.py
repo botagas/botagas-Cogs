@@ -46,6 +46,7 @@ class CaptchaSubmitView(discord.ui.View):
         await interaction.response.send_modal(CaptchaModal(self.cog, self.user_id, self.expected_code))
 
 
+
 class CaptchaVerifyButton(discord.ui.View):
     def __init__(self, cog: Any, timeout: Optional[float] = None):
         super().__init__(timeout=timeout)
@@ -74,7 +75,7 @@ class CaptchaVerifyButton(discord.ui.View):
             dm = await member.create_dm()
             await dm.send(
                 content="Please solve the captcha below and reply here with the code:",
-                file=discord.File(image_fp)  # FIRST use
+                file=discord.File(image_fp),  # FIRST use
             )
             await interaction.response.send_message(
                 "📩 I've sent you a DM with your captcha. Please reply there.",
@@ -88,5 +89,5 @@ class CaptchaVerifyButton(discord.ui.View):
                 ),
                 file=discord.File(image_fp),  # NEW instance
                 ephemeral=True,
-                view=CaptchaSubmitView(self.cog, member.id, code)
+                view=CaptchaSubmitView(self.cog, member.id, code),
             )
