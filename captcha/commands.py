@@ -15,11 +15,15 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        if not bot.tree.get_command("captcha"):
-            self.tree_group = app_commands.Group(
-                name="captcha", description="Manage Captcha settings."
-            )
+        # Retrieve the existing "captcha" group if it exists
+        existing_group = bot.tree.get_command("captcha")
 
+        # Create the new "captcha" group
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
+
+        # Add all subcommands to the new group
         self.tree_group.add_command(self.deploy)
         self.tree_group.add_command(self.toggle)
         self.tree_group.add_command(self.unverifiedrole)
@@ -31,7 +35,14 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         self.tree_group.add_command(self.reset)
         self.tree_group.add_command(self.channel)
 
-        self.bot.tree.add_command(self.tree_group)
+        # Compare the existing group with the new group
+        if not self._commands_match(existing_group, self.tree_group):
+            # Remove the existing group if it exists and differs from the new one
+            if existing_group:
+                bot.tree.remove_command(existing_group.name)
+
+            # Add the new command group to the bot's command tree
+            bot.tree.add_command(self.tree_group)
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
