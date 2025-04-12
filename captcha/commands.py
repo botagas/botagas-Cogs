@@ -17,7 +17,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        
+
         self.bot.tree.add_command(captcha_group)
 
     @captcha_group.command(name="deploy", description="Deploy the verification message")
