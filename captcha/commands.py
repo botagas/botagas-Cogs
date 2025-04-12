@@ -1,218 +1,136 @@
-"""
-MIT License
-
-Copyright (c) 2023-present japandotorg
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-"""
-
 from typing import Any, Dict, Optional
 
 import discord
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
-
 from .abc import CompositeMetaClass, MixinMeta
-from .format import format_message
 from .views import CaptchaVerifyButton
-
+from .format import format_message
+import discord.app_commands as app_commands
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
-    @commands.guild_only()
-    @commands.group(name="captcha")  # type: ignore
-    @commands.admin_or_permissions(manage_guild=True)
-    @commands.cooldown(3, 10, commands.BucketType.guild)
-    @commands.bot_has_permissions(kick_members=True, manage_roles=True)
-    async def _captcha(self, _: commands.GuildContext):
-        """
-        Manage Captcha settings.
-        """
+    def __init__(self, bot: commands.Bot):
+        super().__init__()
+        self.bot = bot
+        self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
 
-    @_captcha.command(name="deploy")
-    async def _deploy(self, ctx: commands.GuildContext):
-        """
-        Deploy the verification message with a button to the configured channel.
-        """
-        channel_id = await self.config.guild(ctx.guild).channel()
+        self.tree_group.add_command(self.deploy)
+        self.tree_group.add_command(self.toggle)
+        self.tree_group.add_command(self.unverifiedrole)
+        self.tree_group.add_command(self.role)
+        self.tree_group.add_command(self.timeout)
+        self.tree_group.add_command(self.tries)
+        self.tree_group.add_command(self.embed)
+        self.tree_group.add_command(self.settings)
+        self.tree_group.add_command(self.reset)
+        self.tree_group.add_command(self.channel)
+
+        self.bot.tree.add_command(self.tree_group)
+
+    @app_commands.command(name="deploy", description="Deploy the verification message")
+    @app_commands.default_permissions(administrator=True)
+    async def deploy(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        channel_id = await self.config.guild(guild).channel()
         if not channel_id:
-            return await ctx.send("Verification channel not configured.")
+            return await interaction.response.send_message("Verification channel not configured.", ephemeral=True)
 
-        channel = ctx.guild.get_channel(channel_id)
+        channel = guild.get_channel(channel_id)
         if not isinstance(channel, discord.TextChannel):
-            return await ctx.send("Invalid verification channel.")
+            return await interaction.response.send_message("Invalid verification channel.", ephemeral=True)
 
-        embed_text = await self.config.guild(ctx.guild).embed_text()
+        embed_text = await self.config.guild(guild).embed_text()
         embed = discord.Embed(
-            description=format_message(embed_text, ctx.guild.me),
+            description=format_message(embed_text, guild.me),
             color=discord.Color(0x34EB83),
         )
 
         view = CaptchaVerifyButton(self)
-
         await channel.send(embed=embed, view=view)
-        await ctx.send("Verification message deployed.")
+        await interaction.response.send_message("Verification message deployed.", ephemeral=True)
 
-    @_captcha.command(name="toggle")
-    async def _toggle(self, ctx: commands.GuildContext, toggle: bool):
-        """
-        Toggle the captcha verification system.
-        """
-        await self.config.guild(ctx.guild).toggle.set(toggle)
-        await ctx.send(f"Captcha verification is now {'enabled' if toggle else 'disabled'}.")
-
-    @_captcha.command(name="channel")
-    async def _channel(
-        self, ctx: commands.GuildContext, *, channel: Optional[discord.TextChannel] = None
-    ):
-        """
-        Configure the captcha verification channel.
-
-        **Note:**
-        - Run the command without the channel argument to clear the config.
-        """
-        if channel is None:
-            await self.config.guild(ctx.guild).channel.clear()
-            await ctx.send("Cleared the captcha verification channel.")
-            return
-        await self.config.guild(ctx.guild).channel.set(channel.id)
-        await ctx.send(
-            f"Configured the captcha verification channel to {channel.name} ({channel.id})."
+    @app_commands.command(name="toggle", description="Enable or disable captcha verification")
+    @app_commands.default_permissions(administrator=True)
+    async def toggle(self, interaction: discord.Interaction, toggle: bool):
+        guild = interaction.guild
+        await self.config.guild(guild).toggle.set(toggle)
+        await interaction.response.send_message(
+            f"Captcha verification is now {'enabled' if toggle else 'disabled'}.", ephemeral=True
         )
 
-    @_captcha.command(name="unverifiedrole")
-    async def _unverifiedrole(
-        self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None
-    ):
-        """
-        Configure the role for users before captcha verification.
-
-        Run without a role to clear the setting.
-        """
+    @app_commands.command(name="unverifiedrole", description="Set the role assigned before captcha is completed.")
+    @app_commands.default_permissions(administrator=True)
+    async def unverifiedrole(self, interaction: discord.Interaction, role: Optional[discord.Role]):
+        guild = interaction.guild
         if role is None:
-            await self.config.guild(ctx.guild).role_before_captcha.clear()
-            await ctx.send("Cleared the unverified role.")
+            await self.config.guild(guild).role_before_captcha.clear()
+            await interaction.response.send_message("Cleared the unverified role.", ephemeral=True)
             return
-        await self.config.guild(ctx.guild).role_before_captcha.set(role.id)
-        await ctx.send(f"Configured the unverified role to {role.name} ({role.id}).")
+        await self.config.guild(guild).role_before_captcha.set(role.id)
+        await interaction.response.send_message(f"Configured the unverified role to {role.name} ({role.id}).", ephemeral=True)
 
-    @_captcha.command(name="role")
-    async def _role(self, ctx: commands.GuildContext, *, role: Optional[discord.Role] = None):
-        """
-        Configure the role for captcha verification.
-
-        **Note:**
-        - Run the command without the role argument to clear the config.
-        """
+    @app_commands.command(name="role", description="Set the role granted after captcha is completed.")
+    @app_commands.default_permissions(administrator=True)
+    async def role(self, interaction: discord.Interaction, role: Optional[discord.Role]):
+        guild = interaction.guild
         if role is None:
-            await self.config.guild(ctx.guild).role_after_captcha.clear()
-            await ctx.send("Cleared the captcha verification role.")
+            await self.config.guild(guild).role_after_captcha.clear()
+            await interaction.response.send_message("Cleared the captcha verification role.", ephemeral=True)
             return
-        await self.config.guild(ctx.guild).role_after_captcha.set(role.id)
-        await ctx.send(f"Configured the captcha verification role to {role.name} ({role.id}).")
+        await self.config.guild(guild).role_after_captcha.set(role.id)
+        await interaction.response.send_message(f"Configured the captcha verification role to {role.name} ({role.id}).", ephemeral=True)
 
-    @_captcha.command(name="timeout")
-    async def _timeout(self, ctx: commands.GuildContext, amount: commands.Range[int, 50, 300]):
-        """
-        Configure the timeout for captcha verification. (Defaults to 120 seconds.)
-        """
-        await self.config.guild(ctx.guild).timeout.set(amount)
-        await ctx.send(f"Configured the timeout for captcha verification to {amount}.")
+    @app_commands.command(name="timeout", description="Set the timeout for captcha verification (50–300 seconds).")
+    @app_commands.default_permissions(administrator=True)
+    async def timeout(self, interaction: discord.Interaction, amount: app_commands.Range[int, 50, 300]):
+        guild = interaction.guild
+        await self.config.guild(guild).timeout.set(amount)
+        await interaction.response.send_message(f"Configured the timeout to {amount} seconds.", ephemeral=True)
 
-    @_captcha.command(name="tries")
-    async def _tries(self, ctx: commands.GuildContext, amount: commands.Range[int, 2, 10]):
-        """
-        Configure the amount of tries needed for the captcha verification. (Defaults to 3 tries.)
-        """
-        await self.config.guild(ctx.guild).tries.set(amount)
-        await ctx.send(
-            f"Configured the amount of tries needed for the captcha verification to {amount}."
-        )
+    @app_commands.command(name="tries", description="Set the max attempts allowed for captcha verification (2–10).")
+    @app_commands.default_permissions(administrator=True)
+    async def tries(self, interaction: discord.Interaction, amount: app_commands.Range[int, 2, 10]):
+        guild = interaction.guild
+        await self.config.guild(guild).tries.set(amount)
+        await interaction.response.send_message(f"Configured the number of attempts to {amount}.", ephemeral=True)
 
-    @_captcha.group(name="message")
-    async def _message(self, _: commands.GuildContext):
-        """
-        Configure the after and before messages.
-        """
-
-    @_message.command(name="embed")
-    async def _embed(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
-        """Set the text shown in the verification embed."""
+    @app_commands.command(name="embed", description="Set the text shown in the verification embed.")
+    @app_commands.default_permissions(administrator=True)
+    async def embed(self, interaction: discord.Interaction, message: Optional[str] = None):
+        guild = interaction.guild
         if message is None:
-            await self.config.guild(ctx.guild).embed_text.clear()
-            await ctx.send("Cleared the embed message.")
+            await self.config.guild(guild).embed_text.clear()
+            await interaction.response.send_message("Cleared the embed message.", ephemeral=True)
             return
-        await self.config.guild(ctx.guild).embed_text.set(message)
-        await ctx.send(f"✅ Updated embed message:\n{box(message, lang='yaml')}")
 
-        captcha_info = await self.config.guild(ctx.guild).get_raw("captcha_message", default=None)
+        await self.config.guild(guild).embed_text.set(message)
+        await interaction.response.send_message(f"✅ Updated embed message:\n{box(message, lang='yaml')}", ephemeral=True)
+
+        captcha_info = await self.config.guild(guild).get_raw("captcha_message", default=None)
         if captcha_info:
             try:
-                channel = ctx.guild.get_channel(captcha_info["channel_id"])
+                channel = guild.get_channel(captcha_info["channel_id"])
                 if channel:
                     msg = await channel.fetch_message(captcha_info["message_id"])
                     embed = discord.Embed(
-                        description=self.format_message(message, ctx.guild.me),
+                        description=format_message(message, guild.me),
                         color=discord.Color(0x34EB83),
                     )
                     await msg.edit(embed=embed)
             except Exception as e:
-                await ctx.send(f"Embed updated, but I couldn't update the deployed message: `{e}`")
+                await interaction.followup.send(f"Embed updated, but I couldn't update the deployed message: `{e}`", ephemeral=True)
 
-    @_message.command(name="before")
-    async def _before(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
-        """
-        Configure the message shown before the captcha.
-        Use {mention}, {name}, {guild}, {id} as placeholders.
-        """
-        if message is None:
-            await self.config.guild(ctx.guild).message_before_captcha.clear()
-            await ctx.send("Cleared the before captcha message.")
-            return
-        await self.config.guild(ctx.guild).message_before_captcha.set(message)
-        await ctx.send(f"✅ Updated before captcha message:\n{box(message, lang='yaml')}")
-
-    @_message.command(name="after")
-    async def _after(self, ctx: commands.GuildContext, *, message: Optional[str] = None):
-        """
-        Configure the message shown after the captcha.
-        Use {mention}, {name}, {guild}, {id} as placeholders.
-        """
-        if message is None:
-            await self.config.guild(ctx.guild).message_after_captcha.clear()
-            await ctx.send("Cleared the after captcha message.")
-            return
-        await self.config.guild(ctx.guild).message_after_captcha.set(message)
-        await ctx.send(f"✅ Updated after captcha message:\n{box(message, lang='yaml')}")
-
-    @commands.bot_has_permissions(embed_links=True)
-    @_captcha.command(name="settings", aliases=["showsettings", "show", "ss"])
-    async def _settings(self, ctx: commands.GuildContext):
-        """
-        View the captcha settings.
-        """
-        data: Dict[str, Any] = await self.config.guild(ctx.guild).all()
-        role = ctx.guild.get_role(data["role_after_captcha"])
+    @app_commands.command(name="settings", description="View the current captcha configuration.")
+    @app_commands.default_permissions(administrator=True)
+    async def settings(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        data: Dict[str, Any] = await self.config.guild(guild).all()
+        role = guild.get_role(data["role_after_captcha"])
         role = "None" if role is None else f"<@&{role.id}> ({role.id})"
-        channel = ctx.guild.get_channel(data["channel"])
+        channel = guild.get_channel(data["channel"])
         channel = "None" if channel is None else f"<#{channel.id}> ({channel.id})"
-        embed: discord.Embed = discord.Embed(
+        embed = discord.Embed(
             title="Captcha Settings",
             description=(
                 f"**Toggle**: {data['toggle']}\n"
@@ -221,9 +139,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                 f"**Tries**: {data['tries']}\n"
                 f"**Role**: {role}\n"
             ),
-            color=await ctx.embed_color(),
+            color=discord.Color(0x34EB83),
         )
-        embed.set_thumbnail(url=getattr(ctx.guild.icon, "url", None))
+        embed.set_thumbnail(url=getattr(guild.icon, "url", None))
         embed.add_field(
             name="Before Captcha Message:",
             value=box(str(data["message_before_captcha"]), lang="json"),
@@ -239,27 +157,25 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             value=box(str(data["message_after_captcha"]), lang="json"),
             inline=False,
         )
-        await ctx.send(
-            embed=embed,
-            reference=ctx.message.to_reference(fail_if_not_exists=False),
-            allowed_mentions=discord.AllowedMentions(replied_user=False),
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="channel", description="Set the channel for captcha verification.")
+    @app_commands.default_permissions(administrator=True)
+    async def channel(self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]):
+        guild = interaction.guild
+        if channel is None:
+            await self.config.guild(guild).channel.clear()
+            await interaction.response.send_message("Cleared the captcha verification channel.", ephemeral=True)
+            return
+        await self.config.guild(guild).channel.set(channel.id)
+        await interaction.response.send_message(
+            f"Configured the captcha verification channel to {channel.name} ({channel.id}).",
+            ephemeral=True
         )
 
-    @_captcha.command(name="reset", aliases=["clear"])
-    @commands.max_concurrency(1, commands.BucketType.channel)
-    async def _reset(self, ctx: commands.GuildContext):
-        """
-        Reset all the captcha settings back to default.
-        """
-        if not await self.config.guild(ctx.guild).all():
-            return await ctx.send("There are no captcha settings to reset.")
-        view = ConfirmView(ctx.author, disable_buttons=True)
-        view.message = await ctx.send(
-            "Are you sure you want to reset all the captcha settings back to default?", view=view
-        )
-        await view.wait()
-        if view.result:
-            await self.config.guild(ctx.guild).clear()
-            await ctx.send("Successfully reset all the captcha settings back to default.")
-        else:
-            await ctx.send("Cancelled, I wont reset the captcha settings.")
+    @app_commands.command(name="reset", description="Reset all captcha settings to default.")
+    @app_commands.default_permissions(administrator=True)
+    async def reset(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        await self.config.guild(guild).clear()
+        await interaction.response.send_message("Successfully reset all captcha settings to default.", ephemeral=True)
