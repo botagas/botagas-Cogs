@@ -136,10 +136,9 @@ class Captcha(
                 message = await channel.fetch_message(captcha_info.get("message_id"))
                 await message.edit(view=CaptchaVerifyButton(self))
                 self.bot.add_view(CaptchaVerifyButton(self))
-                await self.config.guild(guild).captcha_message.set({
-                    "channel_id": channel.id,
-                    "message_id": message.id
-                })
+                await self.config.guild(guild).captcha_message.set(
+                    {"channel_id": channel.id, "message_id": message.id}
+                )
             except discord.NotFound:
                 log.warning(
                     f"Captcha message {captcha_info.get('message_id')} not found in {guild.name}"
