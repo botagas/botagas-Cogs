@@ -45,14 +45,6 @@ DELETE_AFTER: Final[int] = 10
 
 log: logging.Logger = logging.getLogger("red.seina.captcha")
 
-
-def captcha_object() -> ModuleType:
-    from captcha import objects
-
-    return objects
-
-    )
-
 class Captcha(commands.Cog, metaclass=CompositeMetaClass):
     captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
     """Captcha cog."""
