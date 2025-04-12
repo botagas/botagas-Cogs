@@ -18,6 +18,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
 
         self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
 
+
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
     async def deploy(self, interaction: discord.Interaction):
