@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://cogs.melonbot.io/sitemap-index.xml
