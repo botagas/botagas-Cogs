@@ -11,7 +11,6 @@ bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/R
 3. Install cog(s) from `botagas-Cogs` in your Red instance `[p]cog install botagas-Cogs <CogName>`
 4. Load the cog(s) by using `[p]load <cogName>`
 
-> [!NOTE]
 > `[p]` is your prefix.
 
 
