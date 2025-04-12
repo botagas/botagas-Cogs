@@ -107,12 +107,11 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             f"Configured the number of attempts to {amount}.", ephemeral=True
         )
 
-    @captcha_group.command(
-        name="embed", description="Set the text shown in the verification embed."
-    )
+    @captcha_group.command(name="embed", description="Click the green button below to verify")
     @app_commands.default_permissions(administrator=True)
     async def embed(self, interaction: discord.Interaction, message: Optional[str] = None):
         guild = interaction.guild
+
         if message is None:
             await self.config.guild(guild).embed_text.clear()
             await interaction.response.send_message("Cleared the embed message.", ephemeral=True)
@@ -124,21 +123,33 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         )
 
         captcha_info = await self.config.guild(guild).get_raw("captcha_message", default=None)
-        if captcha_info:
-            try:
-                channel = guild.get_channel(captcha_info["channel_id"])
-                if channel:
-                    msg = await channel.fetch_message(captcha_info["message_id"])
-                    embed = discord.Embed(
-                        description=format_message(message, guild.me),
-                        color=discord.Color(0x34EB83),
-                    )
-                    await msg.edit(embed=embed)
-            except Exception as e:
-                await interaction.followup.send(
-                    f"Embed updated, but I couldn't update the deployed message: `{e}`",
+        if not captcha_info:
+            return  # No existing message to update
+
+        try:
+            channel = guild.get_channel(captcha_info["channel_id"])
+            if not channel:
+                raise RuntimeError("Configured channel not found.")
+            msg = await channel.fetch_message(captcha_info["message_id"])
+
+            embed = discord.Embed(
+                description=format_message(message, guild.me),
+                color=discord.Color(0x34EB83),
+            )
+            await msg.edit(embed=embed)
+        except Exception as e:
+            # Fallback if the embed update fails
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    f"Embed updated, but I couldn't edit the deployed message: `{e}`",
                     ephemeral=True,
                 )
+            else:
+                await interaction.followup.send(
+                    f"Embed updated, but I couldn't edit the deployed message: `{e}`",
+                    ephemeral=True,
+                )
+
 
     @captcha_group.command(name="settings", description="View the current captcha configuration.")
     @app_commands.default_permissions(administrator=True)
