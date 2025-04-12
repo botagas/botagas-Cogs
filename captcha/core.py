@@ -38,8 +38,8 @@ from redbot.core.data_manager import bundled_data_path
 
 from .abc import CompositeMetaClass
 from .commands import CaptchaCommands
-from .objects import CaptchaObj
 from .format import format_message
+from .objects import CaptchaObj
 
 DELETE_AFTER: Final[int] = 10
 
