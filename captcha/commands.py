@@ -16,7 +16,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         super().__init__()
         self.bot = bot
 
-        self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
 
         @self.tree_group.command(name="deploy", description="Deploy the verification message")
         @app_commands.default_permissions(administrator=True)
@@ -27,7 +29,6 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
                 return await interaction.response.send_message(
                     "Verification channel not configured.", ephemeral=True
                 )
-
             channel = guild.get_channel(channel_id)
             if not isinstance(channel, discord.TextChannel):
                 return await interaction.response.send_message(
