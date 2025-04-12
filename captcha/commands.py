@@ -43,6 +43,32 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
 
             # Add the new command group to the bot's command tree
             bot.tree.add_command(self.tree_group)
+    def _commands_match(self, existing_group: Optional[app_commands.Group], new_group: app_commands.Group) -> bool:
+        """
+        Compare the existing command group with the new one to determine if they match.
+        """
+        if not existing_group:
+            return False  # If there's no existing group, they don't match
+
+        # Compare the names and descriptions of the groups
+        if existing_group.name != new_group.name or existing_group.description != new_group.description:
+            return False
+
+        # Compare the commands in the groups
+        existing_commands = {cmd.name: cmd for cmd in existing_group.commands}
+        new_commands = {cmd.name: cmd for cmd in new_group.commands}
+
+        # Ensure both groups have the same commands
+        if set(existing_commands.keys()) != set(new_commands.keys()):
+            return False
+
+        # Compare the details of each command
+        for cmd_name, new_cmd in new_commands.items():
+            existing_cmd = existing_commands[cmd_name]
+            if existing_cmd.name != new_cmd.name or existing_cmd.description != new_cmd.description:
+                return False
+
+        return True
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
