@@ -69,7 +69,7 @@ class Captcha(
 
     def __init__(self, bot: Red) -> None:
         super().__init__()
-
+        self._active_challenges: Dict[int, str] = {}
         self.bot: Red = bot
         self.config: Config = Config.get_conf(
             self,
@@ -98,6 +98,9 @@ class Captcha(
         self.font_data: str = os.path.join(self.data_path, "DroidSansMono.ttf")
 
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
+
+    def register_active_challenge(self, user_id: int, code: str) -> None:
+        self._active_challenges[user_id] = code.upper()
 
     def format_help_for_context(self, ctx: commands.Context) -> str:
         pre_processed = super().format_help_for_context(ctx) or ""
