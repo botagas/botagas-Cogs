@@ -372,9 +372,18 @@ class Captcha(
         if os.path.exists(path):
             os.remove(path)
 
-    async def _on_captcha_success(
-        self, member: discord.Member, source: Union[discord.Interaction, discord.Message]
-    ):
+    async def _on_captcha_failure(self, member: discord.abc.User, source: discord.Interaction | discord.Message):
+        text = "❌ Incorrect captcha. Please try again or contact an admin."
+        if isinstance(source, discord.Interaction):
+            if source.response.is_done():
+                await source.followup.send(text, ephemeral=True)
+            else:
+                await source.response.send_message(text, ephemeral=True)
+        else:
+            await source.channel.send(text)
+
+
+    async def _on_captcha_success(self, member: discord.Member, source: discord.Interaction | discord.Message):
         role_id = await self.config.guild(member.guild).role_after_captcha()
         role = member.guild.get_role(role_id) if role_id else None
         if role:
@@ -385,15 +394,9 @@ class Captcha(
 
         text = "✅ You passed the captcha! Welcome."
         if isinstance(source, discord.Interaction):
-            await source.followup.send(text, ephemeral=True)
-        else:
-            await source.channel.send(text)
-
-    async def _on_captcha_failure(
-        self, member: discord.abc.User, source: Union[discord.Interaction, discord.Message]
-    ):
-        text = "❌ Incorrect captcha. Please try again or contact an admin."
-        if isinstance(source, discord.Interaction):
-            await source.followup.send(text, ephemeral=True)
+            if source.response.is_done():
+                await source.followup.send(text, ephemeral=True)
+            else:
+                await source.response.send_message(text, ephemeral=True)
         else:
             await source.channel.send(text)
