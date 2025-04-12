@@ -18,7 +18,6 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
     def __init__(self, bot: Red):
         super().__init__()
         self.bot = Red = bot
-        self.bot.tree.add_command(self.captcha_group, override=True)
 
     @captcha_group.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
