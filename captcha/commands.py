@@ -3,7 +3,6 @@ from typing import Any, Dict, Optional
 import discord
 import discord.app_commands as app_commands
 from redbot.core import commands
-from redbot.core.bot import Red
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
 
@@ -12,14 +11,28 @@ from .format import format_message
 from .views import CaptchaVerifyButton
 
 
-class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
-    captcha_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
-
-    def __init__(self, bot: Red):
+class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
+    def __init__(self, bot: commands.Bot):
         super().__init__()
-        self.bot = Red = bot
+        self.bot = bot
+        self.tree_group = app_commands.Group(
+            name="captcha", description="Manage Captcha settings."
+        )
 
-    @captcha_group.command(name="deploy", description="Deploy the verification message")
+        self.tree_group.add_command(self.deploy)
+        self.tree_group.add_command(self.toggle)
+        self.tree_group.add_command(self.unverifiedrole)
+        self.tree_group.add_command(self.role)
+        self.tree_group.add_command(self.timeout)
+        self.tree_group.add_command(self.tries)
+        self.tree_group.add_command(self.embed)
+        self.tree_group.add_command(self.settings)
+        self.tree_group.add_command(self.reset)
+        self.tree_group.add_command(self.channel)
+
+        self.bot.tree.add_command(self.tree_group)
+
+    @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
     async def deploy(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -45,7 +58,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
         await channel.send(embed=embed, view=view)
         await interaction.response.send_message("Verification message deployed.", ephemeral=True)
 
-    @captcha_group.command(name="toggle", description="Enable or disable captcha verification")
+    @app_commands.command(name="toggle", description="Enable or disable captcha verification")
     @app_commands.default_permissions(administrator=True)
     async def toggle(self, interaction: discord.Interaction, toggle: bool):
         guild = interaction.guild
@@ -54,7 +67,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             f"Captcha verification is now {'enabled' if toggle else 'disabled'}.", ephemeral=True
         )
 
-    @captcha_group.command(
+    @app_commands.command(
         name="unverifiedrole", description="Set the role assigned before captcha is completed."
     )
     @app_commands.default_permissions(administrator=True)
@@ -69,7 +82,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             f"Configured the unverified role to {role.name} ({role.id}).", ephemeral=True
         )
 
-    @captcha_group.command(
+    @app_commands.command(
         name="role", description="Set the role granted after captcha is completed."
     )
     @app_commands.default_permissions(administrator=True)
@@ -86,7 +99,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             f"Configured the captcha verification role to {role.name} ({role.id}).", ephemeral=True
         )
 
-    @captcha_group.command(
+    @app_commands.command(
         name="timeout", description="Set the timeout for captcha verification (50–300 seconds)."
     )
     @app_commands.default_permissions(administrator=True)
@@ -99,7 +112,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             f"Configured the timeout to {amount} seconds.", ephemeral=True
         )
 
-    @captcha_group.command(
+    @app_commands.command(
         name="tries", description="Set the max attempts allowed for captcha verification (2–10)."
     )
     @app_commands.default_permissions(administrator=True)
@@ -112,7 +125,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             f"Configured the number of attempts to {amount}.", ephemeral=True
         )
 
-    @captcha_group.command(
+    @app_commands.command(
         name="embed", description="Set the text shown in the verification embed."
     )
     @app_commands.default_permissions(administrator=True)
@@ -145,7 +158,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
                     ephemeral=True,
                 )
 
-    @captcha_group.command(name="settings", description="View the current captcha configuration.")
+    @app_commands.command(name="settings", description="View the current captcha configuration.")
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -183,7 +196,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @captcha_group.command(name="channel", description="Set the channel for captcha verification.")
+    @app_commands.command(name="channel", description="Set the channel for captcha verification.")
     @app_commands.default_permissions(administrator=True)
     async def channel(
         self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]
@@ -201,7 +214,7 @@ class CaptchaCommands(commands.Cog, metaclass=CompositeMetaClass):
             ephemeral=True,
         )
 
-    @captcha_group.command(name="reset", description="Reset all captcha settings to default.")
+    @app_commands.command(name="reset", description="Reset all captcha settings to default.")
     @app_commands.default_permissions(administrator=True)
     async def reset(self, interaction: discord.Interaction):
         guild = interaction.guild

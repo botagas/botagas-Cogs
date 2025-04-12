@@ -54,6 +54,7 @@ def captcha_object() -> ModuleType:
 
 class Captcha(
     commands.Cog,
+    CaptchaCommands,
     metaclass=CompositeMetaClass,
 ):
     """Captcha cog."""
@@ -62,7 +63,7 @@ class Captcha(
     __version__: Final[str] = "0.1.0"
 
     def __init__(self, bot: Red) -> None:
-        super().__init__()
+        super().__init__(bot)
         self._active_challenges: Dict[int, str] = {}
         self.bot: Red = bot
         self.config: Config = Config.get_conf(

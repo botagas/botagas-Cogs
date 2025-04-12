@@ -38,4 +38,3 @@ async def setup(bot: Red) -> None:
     # Add the cog to the bot
     cog = Captcha(bot)
     await bot.add_cog(cog)
-    await bot.add_cog(CaptchaCommands(bot))
