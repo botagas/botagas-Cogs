@@ -15,9 +15,10 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        self.tree_group = app_commands.Group(
-            name="captcha", description="Manage Captcha settings."
-        )
+        if not bot.tree.get_command("captcha"):
+            self.tree_group = app_commands.Group(
+                name="captcha", description="Manage Captcha settings."
+            )
 
         self.tree_group.add_command(self.deploy)
         self.tree_group.add_command(self.toggle)
@@ -30,8 +31,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         self.tree_group.add_command(self.reset)
         self.tree_group.add_command(self.channel)
 
-        if not self.bot.tree.get_command("captcha"):
-            self.bot.tree.add_command(self.tree_group)
+        self.bot.tree.add_command(self.tree_group)
 
     @app_commands.command(name="deploy", description="Deploy the verification message")
     @app_commands.default_permissions(administrator=True)
