@@ -10,7 +10,7 @@ from .format import format_message
 import discord.app_commands as app_commands
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: Red):
         super().__init__()
         self.bot = bot
         self.tree_group = app_commands.Group(name="captcha", description="Manage Captcha settings.")
