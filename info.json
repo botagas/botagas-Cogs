@@ -1,8 +1,7 @@
 {
-    "author": ["inthedark.org"],
-    "install_msg": "Thanks for install my repo! If you need help with any cogs consider joining my support server (<https://discord.gg/mXfYuMy92r>) or make an issue on my repo.",
-    "name": "Seina-Cogs",
-    "short": "Just some tools for red.",
-    "description": "Fun cogs developed by inthedark.org.",
-    "tags": ["fun"]
+    "author": ["botagas"],
+    "install_msg": "Thank you for installing my repository. Feel free to reach out on GitHub regarding reports.",
+    "name": "botagas-Cogs",
+    "short": "Reworked tools from other repositories for modern use.",
+    "description": "Modernized cogs reworked by botagas"
 }
