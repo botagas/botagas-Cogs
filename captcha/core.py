@@ -43,7 +43,9 @@ class CaptchaSubmitView(discord.ui.View):
                 "This captcha isn't for you.", ephemeral=True
             )
 
-        await interaction.response.send_modal(CaptchaModal(self.cog, self.user_id, self.expected_code))
+        await interaction.response.send_modal(
+            CaptchaModal(self.cog, self.user_id, self.expected_code)
+        )
 
 
 class CaptchaVerifyButton(discord.ui.View):
@@ -74,7 +76,7 @@ class CaptchaVerifyButton(discord.ui.View):
             dm = await member.create_dm()
             await dm.send(
                 content="Please solve the captcha below and reply here with the code:",
-                file=discord.File(image_fp)
+                file=discord.File(image_fp),
             )
             await interaction.response.send_message(
                 "📩 I've sent you a DM with your captcha. Please reply there.",
@@ -88,13 +90,12 @@ class CaptchaVerifyButton(discord.ui.View):
                 ),
                 file=discord.File(image_fp),
                 ephemeral=True,
-                view=CaptchaSubmitView(self.cog, member.id, code)
+                view=CaptchaSubmitView(self.cog, member.id, code),
             )
             try:
-                await self.cog.config.guild(interaction.guild).captcha_message.set({
-                    "channel_id": interaction.channel.id,
-                    "message_id": message.id
-                })
+                await self.cog.config.guild(interaction.guild).captcha_message.set(
+                    {"channel_id": interaction.channel.id, "message_id": message.id}
+                )
             except Exception:
                 pass
 
@@ -153,7 +154,9 @@ async def _initialize(self):
             pass
 
 
-async def _on_captcha_failure(self, member: discord.abc.User, source: discord.Interaction | discord.Message):
+async def _on_captcha_failure(
+    self, member: discord.abc.User, source: discord.Interaction | discord.Message
+):
     text = "❌ Incorrect captcha. Please try again or contact an admin."
     if isinstance(source, discord.Interaction):
         if source.response.is_done():
@@ -162,7 +165,6 @@ async def _on_captcha_failure(self, member: discord.abc.User, source: discord.In
             await source.response.send_message(text, ephemeral=True)
     else:
         await source.channel.send(text)
-
 
 
 async def _on_captcha_success(
