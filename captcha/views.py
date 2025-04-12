@@ -1,7 +1,8 @@
 from typing import Any, Optional
-from .format import format_message
 
 import discord
+
+from .format import format_message
 
 
 class CaptchaModal(discord.ui.Modal, title="Captcha Verification"):

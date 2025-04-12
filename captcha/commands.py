@@ -28,9 +28,11 @@ import discord
 from redbot.core import commands
 from redbot.core.utils.chat_formatting import box
 from redbot.core.utils.views import ConfirmView
+
 from .abc import CompositeMetaClass, MixinMeta
-from .views import CaptchaVerifyButton
 from .format import format_message
+from .views import CaptchaVerifyButton
+
 
 class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
     @commands.guild_only()
