@@ -141,7 +141,9 @@ class Captcha(
                     "message_id": message.id
                 })
             except discord.NotFound:
-                log.warning(f"Captcha message {captcha_info.get('message_id')} not found in {guild.name}")
+                log.warning(
+                    f"Captcha message {captcha_info.get('message_id')} not found in {guild.name}"
+                )
             except discord.HTTPException as e:
                 log.exception(f"Failed to reattach captcha view in {guild.name}: {e}")
 
