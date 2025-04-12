@@ -127,12 +127,6 @@ class Captcha(
         self.task.cancel()
         await super().cog_unload()
 
-    async def validate_tagscript(self, tagscript: str) -> bool:
-        length = len(tagscript)
-        if length > TAGSCRIPT_LIMIT:
-            raise TagCharacterLimitReached(TAGSCRIPT_LIMIT, length)
-        return True
-
     async def _get_or_fetch_guild(self, guild_id: int) -> Optional[discord.Guild]:
         guild: Optional[discord.Guild] = self.bot.get_guild(guild_id)
         if guild is not None:
