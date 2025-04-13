@@ -80,4 +80,4 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 
 ## 💬 Need Help?
 
-Join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server for help or questions.
+Join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server for help or questions. I do not have a support channel, but I am present as **`@Winter`**.
