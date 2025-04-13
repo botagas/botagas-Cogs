@@ -239,7 +239,7 @@ class Captcha(
     async def cleanup_messages(self, member_id: int):
         await asyncio.sleep(DELETE_AFTER)
 
-        for user_try in self._user_tries.get(member.id, []):
+        for user_try in self._user_tries.get(member_id, []):
             try:
                 await user_try.delete()
             except discord.NotFound:
@@ -248,12 +248,12 @@ class Captcha(
                 log.warning(f"Could not delete message {user_try.id}: {e}")
 
         try:
-            await self._captchas[member.id].delete()
+            await self._captchas[member_id].delete()
         except (KeyError, discord.HTTPException):
             pass
 
-        self._captchas.pop(member.id, None)
-        self._user_tries.pop(member.id, None)
+        self._captchas.pop(member_id, None)
+        self._user_tries.pop(member_id, None)
 
     @commands.Cog.listener()
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
