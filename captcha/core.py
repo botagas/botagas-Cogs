@@ -234,7 +234,10 @@ class Captcha(
             except (discord.Forbidden, discord.HTTPException):
                 log.exception(f"Failed to add roles to {member.id}.", exc_info=True)
 
-        asyncio.create_task(self.cleanup_messages(member.id))
+        try:
+            asyncio.create_task(self.cleanup_messages(member.id))
+        except Exception as e:
+            log.exception(f"Failed to schedule cleanup for {member.id}: {e}")
 
     async def cleanup_messages(self, member_id: int):
         await asyncio.sleep(DELETE_AFTER)
@@ -374,4 +377,7 @@ class Captcha(
                 await source.response.send_message(text, ephemeral=True)
         else:
             await source.channel.send(text)
-        asyncio.create_task(self.cleanup_messages(member.id))
+        try:
+            asyncio.create_task(self.cleanup_messages(member.id))
+        except Exception as e:
+            log.exception(f"Failed to schedule cleanup for {member.id}: {e}")
