@@ -33,7 +33,7 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             return await interaction.response.send_message(
                 "Invalid verification channel.", ephemeral=True
             )
-            
+
         captcha_info = await self.config.guild(guild).get_raw("captcha_message", default=None)
         if captcha_info:
             try:
@@ -61,7 +61,9 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
             },
         )
 
-        await interaction.response.send_message("✅ Verification message deployed.", ephemeral=True)
+        await interaction.response.send_message(
+            "✅ Verification message deployed.", ephemeral=True
+        )
 
     @captcha_group.command(name="toggle", description="Enable or disable captcha verification")
     @app_commands.default_permissions(administrator=True)
