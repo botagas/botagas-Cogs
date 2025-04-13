@@ -235,7 +235,7 @@ class Captcha(
                 log.exception(f"Failed to add roles to {member.id}.", exc_info=True)
 
         asyncio.create_task(self.cleanup_messages(member.id))
-        
+
     async def cleanup_messages():
         await asyncio.sleep(DELETE_AFTER)
 
