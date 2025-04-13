@@ -236,7 +236,7 @@ class Captcha(
 
         asyncio.create_task(self.cleanup_messages(member.id))
         
-    async def cleanup_messages():
+    async def cleanup_messages(self, member_id: int):
         await asyncio.sleep(DELETE_AFTER)
 
         for user_try in self._user_tries.get(member.id, []):
