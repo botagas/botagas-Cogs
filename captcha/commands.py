@@ -43,10 +43,13 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         view = CaptchaVerifyButton(self)
         msg = await channel.send(embed=embed, view=view)
 
-        await self.config.guild(guild).set_raw("captcha_message", value={
-            "channel_id": msg.channel.id,
-            "message_id": msg.id,
-        })
+        await self.config.guild(guild).set_raw(
+            "captcha_message",
+            value={
+                "channel_id": msg.channel.id,
+                "message_id": msg.id,
+            },
+        )
 
         await interaction.response.send_message("Verification message deployed.", ephemeral=True)
 
@@ -125,7 +128,6 @@ class CaptchaCommands(MixinMeta, metaclass=CompositeMetaClass):
         await interaction.response.send_message(
             f"✅ Updated before-captcha message:\n{box(message, lang='yaml')}", ephemeral=True
         )
-
 
     @captcha_group.command(name="after", description="Set the message shown after captcha.")
     @app_commands.default_permissions(administrator=True)

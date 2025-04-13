@@ -13,8 +13,11 @@ bitasid's Unapproved Cogs for [Red-DiscordBot](https://github.com/Cog-Creators/R
 
 ## Documentation
 ### Roomer rework
-Roomer now supports slash commands with `/roomer`.
-Possible arguments are: `add <channel>`, `enable`, `disable`.
+Roomer now supports slash commands with **`/roomer`**. Possible arguments are: 
+- `add <channel>`,
+- `enable`,
+- `disable`.
+
 Redundant (to be removed): `limit`, `name`, `remove`.
 
 It also has these new features:
@@ -29,7 +32,31 @@ It also has these new features:
 
 ### Captcha rework
 Captcha now uses modals and interactions instead of sending messages on each user's join and waiting for their reply which generates unnecessary message notifications.
-Current implementation does not YET support slash commands. 
+
+Current implementation now supports slash commands with **`/captcha`**. Possible arguments are: 
+- `channel <channel>`,
+- `toggle`,
+- `deploy`,
+- `settings`,
+- `reset`,
+- `role <VerifiedRole>`,
+- `unverifiedrole <UnverifiedRole>`,
+- `tries <number>`,
+- `timeout <number>`,
+- `embed <text>`,
+- `before <text>`,
+- `after <text>`
+
+**It also has these new features**:
+- Now instead deploys a single embed in a designated channel.
+- A button is added for initiating the verification process. You get two options:
+  - If user has DMs disabled -> Send an interaction and create a button to submit the code with a form
+  - If user has DMs enabled -> Send verification code to DMs and wait for reply
+
+**Issues**:
+- Does not auto-update the last verification embed. If you reload/update the cog or restart the bot, you will have to re-deploy the message.
+- Does not delete messages in DMs (WIP).
+
 ## Credits
 - Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot.
 - Thanks to Seina-Cogs for their Captcha cog. Visit their repository at [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) here.
