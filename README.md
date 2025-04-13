@@ -51,7 +51,7 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 - `/captcha role <VerifiedRole>` — Assign verified role
 - `/captcha unverifiedrole <UnverifiedRole>` — Assign unverified role
 - `/captcha tries <number>` — Set max attempts
-- `/captcha timeout <number>` — Set timeout before kick
+- `/captcha timeout <number>` — Set timeout before invalidating verification process
 - `/captcha embed <text>` — Set embed message
 - `/captcha before <text>` — Message shown before verification
 - `/captcha after <text>` — Message shown after success
@@ -67,6 +67,7 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 
 #### Known Limitations:
 - ⚠️ After a bot restart or cog reload, you must re-run `/captcha deploy` to re-send the verification message. The old message is deleted automatically.
+- Timeout is yet to be implemented (WIP)
 
 ---
 
