@@ -3,7 +3,7 @@
 [![CodeQL](https://github.com/botagas/botagas-Cogs/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/codeql-analysis.yml)
 [![Linting](https://github.com/botagas/botagas-Cogs/actions/workflows/tests.yml/badge.svg)](https://github.com/botagas/botagas-Cogs/blob/main/.github/workflows/tests.yml)
 
-Custom cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot), created and maintained by **bitasid**.  
+Custom cogs for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot), created and maintained by **botagas**.  
 Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) and [Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs), this repo introduces modern reworks for **Captcha** and **Roomer** with full support for **slash commands**, **modals**, and **interactive UIs**.
 
 ---
