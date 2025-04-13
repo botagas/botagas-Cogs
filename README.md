@@ -55,6 +55,7 @@ Current implementation now supports slash commands with **`/captcha`**. Possible
 
 **Issues**:
 - Does not auto-update the last verification embed. If you reload/update the cog or restart the bot, you will have to re-deploy the message.
+- Does not delete messages in DMs (WIP).
 
 ## Credits
 - Thanks to the community in the [Red Server](https://discord.gg/red) for the resources and to the developers for creating the bot.
