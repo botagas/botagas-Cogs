@@ -298,7 +298,7 @@ class Captcha(
             return  # No active challenge
 
         code, guild_id = code_info
-        if message.content.strip().uppe r() == code:
+        if message.content.strip().upper() == code:
             guild = self.bot.get_guild(guild_id)
             if not guild:
                 return
