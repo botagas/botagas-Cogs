@@ -374,3 +374,4 @@ class Captcha(
                 await source.response.send_message(text, ephemeral=True)
         else:
             await source.channel.send(text)
+        asyncio.create_task(self.cleanup_messages(member.id))
