@@ -1,7 +1,7 @@
 {
     "author": ["inthedark.org, botagas"],
     "install_msg": "Thanks for installing the new captcha cog.",
-    "name": "Captcha",
+    "name": "Captcha (reworked)",
     "disabled": false,
     "short": "Reworked Captcha verification system.",
     "description": "Reworked Captcha verification system.",
