@@ -92,11 +92,13 @@ class Captcha(
 
         self.data_path: Path = bundled_data_path(self)
         self.font_data: str = os.path.join(self.data_path, "DroidSansMono.ttf")
-        
+
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
         self._dm_messages: Dict[int, discord.Message] = {}
 
-    def register_active_challenge(self, user_id: int, code: str, guild_id: int, timeout: int) -> None:
+    def register_active_challenge(
+        self, user_id: int, code: str, guild_id: int, timeout: int
+    ) -> None:
         self._active_challenges[user_id] = {
             "code": code.upper(),
             "guild_id": guild_id,
@@ -350,7 +352,9 @@ class Captcha(
             user = self.bot.get_user(user_id)
             if user:
                 try:
-                    msg = await user.send("❌ Time expired for captcha verification. Please try again later.")
+                    msg = await user.send(
+                        "❌ Time expired for captcha verification. Please try again later."
+                    )
                     self._user_tries.setdefault(user_id, []).append(msg)
                 except discord.Forbidden:
                     pass
