@@ -264,7 +264,7 @@ class ChannelControlView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🔒 Lock/Unlock", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="", style=discord.ButtonStyle.danger)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
