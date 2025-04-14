@@ -277,7 +277,7 @@ class ChannelControlView(discord.ui.View):
             "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.", ephemeral=True
         )
 
-    @discord.ui.button(label="👁 Hide", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="👁 Hide", style=discord.ButtonStyle.danger)
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
