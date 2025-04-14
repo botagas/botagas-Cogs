@@ -7,6 +7,8 @@ from redbot.core import Config
 from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
+roomer_group = app_commands.Group(name="roomer", description="Roomer configuration.")
+
 _ = Translator("Roomer", __file__)
 
 
