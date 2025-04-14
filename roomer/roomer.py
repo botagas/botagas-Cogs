@@ -297,9 +297,6 @@ class ChannelControlView(discord.ui.View):
             "👁 Channel is now visible to everyone." if currently_hidden else "🙈 Channel hidden from others.",
             ephemeral=True
         )
-            "👁 Channel is now visible to everyone." if currently_hidden else "🙈 Channel hidden from others.",
-            ephemeral=True
-        )
 
     @discord.ui.button(label="🔄 Reset Channel", style=discord.ButtonStyle.secondary)
     async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
