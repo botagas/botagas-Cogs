@@ -234,22 +234,6 @@ class PermitSelect(discord.ui.Select):
 
 
 class ChannelControlView(discord.ui.View):
-    def update_dynamic_labels(self):
-        overwrites = self.channel.overwrites
-        current = overwrites.get(self.channel.guild.default_role, discord.PermissionOverwrite())
-        locked = current.connect is False
-        hidden = current.view_channel is False
-
-        for item in self.children:
-            if isinstance(item, discord.ui.Button):
-                if item.callback == self.toggle_lock:
-                    item.label = "🔓 Unlock" if locked else "🔒 Lock"
-                    item.style = (
-                        discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
-                    )
-                elif item.callback == self.toggle_visibility:
-                    item.label = "👁 Unhide" if hidden else "🙈 Hide"
-
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
         self.channel = channel
@@ -279,7 +263,11 @@ class ChannelControlView(discord.ui.View):
         await self.channel.edit(overwrites=overwrites)
 
         # Update button labels and styles
-        self.update_dynamic_labels()
+        button.label = "🔓 Unlock" if currently_locked else "🔒 Lock"
+        button.style = (
+            discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+        )
+
 
         # Update the message with the updated view
         await interaction.response.edit_message(view=self)
@@ -288,7 +276,7 @@ class ChannelControlView(discord.ui.View):
             "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.", ephemeral=True
         )
 
-    @discord.ui.button(label="👁 Hide/Unhide", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="👁 Hide", style=discord.ButtonStyle.secondary)
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -303,7 +291,9 @@ class ChannelControlView(discord.ui.View):
         await self.channel.edit(overwrites=overwrites)
 
         # Update button labels and styles
-        self.update_dynamic_labels()
+        button.style = (
+            discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+        )
 
         # Update the message with the updated view
         await interaction.response.edit_message(view=self)
