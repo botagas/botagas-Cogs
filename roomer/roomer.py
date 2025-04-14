@@ -244,9 +244,12 @@ class ChannelControlView(discord.ui.View):
             if isinstance(item, discord.ui.Button):
                 if item.callback.__name__ == "toggle_lock":
                     item.label = "🔓 Unlock" if locked else "🔒 Lock"
-                    item.style = discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
+                    item.style = (
+                        discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
+                    )
                 elif item.callback.__name__ == "toggle_visibility":
                     item.label = "👁 Unhide" if hidden else "🙈 Hide"
+
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
         self.channel = channel
