@@ -108,7 +108,7 @@ class Roomer(red_commands.Cog):
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
                 ),
-                view=ChannelControlView(new_channel, member.id, self),
+                view=view,
             )
             view.update_dynamic_labels()
         except Exception:
