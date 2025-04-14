@@ -92,11 +92,17 @@ class Captcha(
 
         self.data_path: Path = bundled_data_path(self)
         self.font_data: str = os.path.join(self.data_path, "DroidSansMono.ttf")
-
+        
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
+        self._dm_messages: Dict[int, discord.Message] = {}
 
-    def register_active_challenge(self, user_id: int, code: str, guild_id: int) -> None:
-        self._active_challenges[user_id] = (code.upper(), guild_id)
+    def register_active_challenge(self, user_id: int, code: str, guild_id: int, timeout: int) -> None:
+        self._active_challenges[user_id] = {
+            "code": code.upper(),
+            "guild_id": guild_id,
+            "expires_at": asyncio.get_event_loop().time() + timeout,
+        }
+        asyncio.create_task(self._expire_challenge(user_id, timeout))
 
     def format_message(self, template: str, member: discord.Member) -> str:
         return template.format(
@@ -296,11 +302,21 @@ class Captcha(
         if message.guild is not None or message.author.bot:
             return
 
-        code_info = self._active_challenges.get(message.author.id)
-        if not code_info:
-            return  # No active challenge
+        challenge = self._active_challenges.get(message.author.id)
+        if not challenge:
+            return
 
-        code, guild_id = code_info
+        code = challenge["code"]
+        guild_id = challenge["guild_id"]
+        expires_at = challenge["expires_at"]
+
+        if asyncio.get_event_loop().time() > expires_at:
+            await message.channel.send(
+                "❌ This captcha session has expired. Please start a new verification."
+            )
+            self._active_challenges.pop(message.author.id, None)
+            return
+
         if message.content.strip().upper() == code:
             guild = self.bot.get_guild(guild_id)
             if not guild:
@@ -327,6 +343,22 @@ class Captcha(
         captcha.write(code, path)
         return path
 
+    async def _expire_challenge(self, user_id: int, timeout: int):
+        await asyncio.sleep(timeout)
+        challenge = self._active_challenges.pop(user_id, None)
+        if challenge:
+            user = self.bot.get_user(user_id)
+            if user:
+                try:
+                    msg = await user.send("❌ Time expired for captcha verification. Please try again later.")
+                    self._user_tries.setdefault(user_id, []).append(msg)
+                except discord.Forbidden:
+                    pass
+            try:
+                asyncio.create_task(self.cleanup_messages(user_id))
+            except Exception as e:
+                log.exception(f"Failed to schedule cleanup for expired challenge {user_id}: {e}")
+
     def cleanup_captcha_image(self, user_id: int):
         path = os.path.join(str(self.data_path), f"{user_id}.png")
         if os.path.exists(path):
@@ -338,9 +370,11 @@ class Captcha(
         text = "❌ Incorrect captcha. Please try again or contact an admin."
         if isinstance(source, discord.Interaction):
             if source.response.is_done():
-                await source.followup.send(text, ephemeral=True)
+                msg = await source.followup.send(text, ephemeral=True)
+                self._user_tries.setdefault(member.id, []).append(msg)
             else:
-                await source.response.send_message(text, ephemeral=True)
+                msg = await source.response.send_message(text, ephemeral=True)
+                self._user_tries.setdefault(member.id, []).append(msg)
         else:
             await source.channel.send(text)
 
