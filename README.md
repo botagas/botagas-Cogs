@@ -38,6 +38,11 @@ Roomer now fully supports **slash commands** via `/roomer`.
   - **Set Limit** — Define max users in the room
   - **Claim Room** — Take over ownership if the original creator has left
 - Room settings are only changeable by the channel creator or current owner
+#### WIP Features:
+- Change status of the channel
+- Forbid / Permit user / role
+- Hide / Unhide channel
+- Game Presets
 
 ---
 
