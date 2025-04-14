@@ -38,6 +38,11 @@ Roomer now fully supports **slash commands** via `/roomer`.
   - **Set Limit** — Define max users in the room
   - **Claim Room** — Take over ownership if the original creator has left
 - Room settings are only changeable by the channel creator or current owner
+#### WIP Features:
+- Change status of the channel
+- Forbid / Permit user / role
+- Hide / Unhide channel
+- Game Presets
 
 ---
 
@@ -51,7 +56,7 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 - `/captcha role <VerifiedRole>` — Assign verified role
 - `/captcha unverifiedrole <UnverifiedRole>` — Assign unverified role
 - `/captcha tries <number>` — Set max attempts
-- `/captcha timeout <number>` — Set timeout before invalidating verification process
+- `/captcha timeout <number>` — Set timeout before invalidating verification attempt
 - `/captcha embed <text>` — Set embed message
 - `/captcha before <text>` — Message shown before verification
 - `/captcha after <text>` — Message shown after success
@@ -61,13 +66,13 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 - Two verification methods:
   - _If DMs are enabled_: user gets a DM with an image captcha
   - _If DMs are disabled_: fallback to a **modal** with code input
+- Instead of kicking the user on timeout, now the verification attempt is invalidated and the user can try again.
 - **Automatic cleanup**:
   - Captcha messages in DMs are auto-deleted after verification
   - Server messages are cleaned up via async background task
 
 #### Known Limitations:
 - ⚠️ After a bot restart or cog reload, you must re-run `/captcha deploy` to re-send the verification message. The old message is deleted automatically.
-- Timeout is yet to be implemented (WIP)
 
 ---
 
