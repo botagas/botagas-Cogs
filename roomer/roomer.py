@@ -102,7 +102,6 @@ class Roomer(red_commands.Cog):
 
         try:
             view = ChannelControlView(new_channel, member.id, self)
-            view.update_dynamic_labels()
             await new_channel.send(
                 embed=discord.Embed(
                     title="🔧 Voice Channel Controls",
