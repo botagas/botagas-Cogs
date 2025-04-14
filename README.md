@@ -61,6 +61,7 @@ The new Captcha system uses **modals and interactions** instead of classic text 
 - Two verification methods:
   - _If DMs are enabled_: user gets a DM with an image captcha
   - _If DMs are disabled_: fallback to a **modal** with code input
+- Insteaf of kicking the user on timeout, now the verification attempt is invalidated and the user can try again.
 - **Automatic cleanup**:
   - Captcha messages in DMs are auto-deleted after verification
   - Server messages are cleaned up via async background task
