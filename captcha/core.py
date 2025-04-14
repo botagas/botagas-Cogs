@@ -415,7 +415,8 @@ class Captcha(
             else:
                 await source.response.send_message(text, ephemeral=True)
         else:
-            await source.channel.send(text)
+            msg = await source.channel.send(text)
+            self._user_tries.setdefault(member.id, []).append(msg)
         try:
             asyncio.create_task(self.cleanup_messages(member.id))
         except Exception as e:
