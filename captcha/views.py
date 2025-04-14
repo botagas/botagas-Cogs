@@ -71,7 +71,8 @@ class CaptchaVerifyButton(discord.ui.View):
             )
 
         code = self.cog.generate_captcha_code()
-        self.cog.register_active_challenge(member.id, code, interaction.guild.id)
+        timeout = await self.cog.config.guild(interaction.guild).timeout()
+        self.cog.register_active_challenge(member.id, code, interaction.guild.id, timeout)
         image_fp = self.cog.save_captcha_image(code, member.id)
 
         try:
