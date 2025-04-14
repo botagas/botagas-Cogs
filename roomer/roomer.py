@@ -294,7 +294,7 @@ class ChannelControlView(discord.ui.View):
         updated = self.channel.overwrites.get(
             self.channel.guild.default_role, discord.PermissionOverwrite()
         )
-        hidden = updated.connect is False
+        hidden = updated.view_channel is False
 
         # Update button labels and styles
         button.style = discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
