@@ -288,27 +288,6 @@ class ChannelControlView(discord.ui.View):
             "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.", ephemeral=True
         )
 
-    @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
-    async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self._check_permissions(interaction):
-            return
-        modal = RenameModal(self.channel)
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="👥 Set Limit", style=discord.ButtonStyle.secondary)
-    async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self._check_permissions(interaction):
-            return
-        modal = LimitModal(self.channel)
-        await interaction.response.send_modal(modal)
-
-    @discord.ui.button(label="📝 Set Status", style=discord.ButtonStyle.secondary)
-    async def set_status(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self._check_permissions(interaction):
-            return
-        modal = SetStatusModal(self.channel)
-        await interaction.response.send_modal(modal)
-
     @discord.ui.button(label="👁 Hide/Unhide", style=discord.ButtonStyle.secondary)
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
@@ -338,22 +317,6 @@ class ChannelControlView(discord.ui.View):
             ephemeral=True,
         )
 
-    @discord.ui.button(label="🔄 Reset Channel", style=discord.ButtonStyle.secondary)
-    async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self._check_permissions(interaction):
-            return
-        overwrites = self.channel.overwrites
-        if self.channel.guild.default_role in overwrites:
-            del overwrites[self.channel.guild.default_role]
-        for target in list(overwrites):
-            if target != self.channel.guild.default_role:
-                del overwrites[target]
-
-        await self.channel.edit(name="Voice Room", user_limit=0, topic=None, overwrites=overwrites)
-        await interaction.response.send_message(
-            "🔄 Channel reset to default settings.", ephemeral=True
-        )
-
     @discord.ui.button(label="➕ Permit", style=discord.ButtonStyle.success)
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
@@ -374,6 +337,43 @@ class ChannelControlView(discord.ui.View):
         view.add_item(select)
         await interaction.response.send_message(
             "Select a user or role to forbid:", view=view, ephemeral=True
+        )
+
+    @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
+    async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        modal = RenameModal(self.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="📝 Set Status", style=discord.ButtonStyle.secondary)
+    async def set_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        modal = SetStatusModal(self.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="👥 Set Limit", style=discord.ButtonStyle.secondary)
+    async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        modal = LimitModal(self.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="🔄 Reset Channel", style=discord.ButtonStyle.secondary)
+    async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        overwrites = self.channel.overwrites
+        if self.channel.guild.default_role in overwrites:
+            del overwrites[self.channel.guild.default_role]
+        for target in list(overwrites):
+            if target != self.channel.guild.default_role:
+                del overwrites[target]
+
+        await self.channel.edit(name="Voice Room", user_limit=0, topic=None, overwrites=overwrites)
+        await interaction.response.send_message(
+            "🔄 Channel reset to default settings.", ephemeral=True
         )
 
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
