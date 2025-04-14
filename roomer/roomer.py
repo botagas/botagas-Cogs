@@ -107,7 +107,8 @@ class Roomer(red_commands.Cog):
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
                 ),
-                view=ChannelControlView(new_channel, member.id, self),
+                view = ChannelControlView(new_channel, member.id, self)
+            view.update_dynamic_labels(),
             )
         except Exception:
             pass
@@ -232,7 +233,24 @@ class PermitSelect(discord.ui.Select):
             )
 
 
+                f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
+            )
+
+
 class ChannelControlView(discord.ui.View):
+    def update_dynamic_labels(self):
+        overwrites = self.channel.overwrites
+        current = overwrites.get(self.channel.guild.default_role, discord.PermissionOverwrite())
+        locked = current.connect is False
+        hidden = current.view_channel is False
+
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                if item.callback.__name__ == "toggle_lock":
+                    item.label = "🔓 Unlock" if locked else "🔒 Lock"
+                    item.style = discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
+                elif item.callback.__name__ == "toggle_visibility":
+                    item.label = "👁 Unhide" if hidden else "🙈 Hide"
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
         self.channel = channel
