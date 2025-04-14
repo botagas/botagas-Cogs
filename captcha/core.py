@@ -381,6 +381,7 @@ class Captcha(
                 self._user_tries.setdefault(member.id, []).append(msg)
         else:
             await source.channel.send(text)
+        asyncio.create_task(self.cleanup_messages(member.id))
 
     async def _on_captcha_success(
         self, member: discord.Member, source: discord.Interaction | discord.Message
@@ -419,3 +420,4 @@ class Captcha(
             asyncio.create_task(self.cleanup_messages(member.id))
         except Exception as e:
             log.exception(f"Failed to schedule cleanup for {member.id}: {e}")
+        asyncio.create_task(self.cleanup_messages(member.id))
