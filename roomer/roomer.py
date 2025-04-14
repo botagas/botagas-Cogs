@@ -265,12 +265,10 @@ class ChannelControlView(discord.ui.View):
             self.channel.guild.default_role, discord.PermissionOverwrite()
         )
         locked = updated.connect is False
-        
+
         # Update button labels and styles
         button.label = "🔓 Unlock" if locked else "🔒 Lock"
-        button.style = (
-            discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
-        )
+        button.style = discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
 
         # Update the message with the updated view
         await interaction.response.edit_message(view=self)
@@ -299,9 +297,7 @@ class ChannelControlView(discord.ui.View):
         hidden = updated.connect is False
 
         # Update button labels and styles
-        button.style = (
-            discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
-        )
+        button.style = discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
 
         # Update the message with the updated view
         await interaction.response.edit_message(view=self)
