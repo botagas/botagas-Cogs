@@ -108,7 +108,7 @@ class Roomer(red_commands.Cog):
                     title="🔧 Voice Channel Controls",
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
-                    view=view
+                    view=view,
                 ),
             )
         except Exception:
