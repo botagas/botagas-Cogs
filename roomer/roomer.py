@@ -55,20 +55,26 @@ class Roomer(red_commands.Cog):
         if channel.id not in channels:
             channels.append(channel.id)
             await self.config.guild(interaction.guild).auto_channels.set(channels)
-            await interaction.response.send_message(f"Added {channel.mention} as a join-to-create channel.")
+            await interaction.response.send_message(
+                f"Added {channel.mention} as a join-to-create channel."
+            )
         else:
             await interaction.response.send_message("That channel is already configured.")
 
     @roomer_group.command(name="remove", description="Remove a join-to-create channel.")
     @app_commands.describe(channel="Voice channel to remove from join-to-create")
     @app_commands.checks.has_permissions(administrator=True)
-    async def remove_channel(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
+    async def remove_channel(
+        self, interaction: discord.Interaction, channel: discord.VoiceChannel
+    ):
         """Remove a join-to-create channel."""
         channels = await self.config.guild(interaction.guild).auto_channels()
         if channel.id in channels:
             channels.remove(channel.id)
             await self.config.guild(interaction.guild).auto_channels.set(channels)
-            await interaction.response.send_message(f"Removed {channel.mention} from join-to-create channels.")
+            await interaction.response.send_message(
+                f"Removed {channel.mention} from join-to-create channels."
+            )
         else:
             await interaction.response.send_message("That channel wasn't configured.")
 
@@ -119,7 +125,9 @@ class Roomer(red_commands.Cog):
 
 class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
     status = discord.ui.TextInput(
-        label="Channel Status (shown below name)", placeholder="e.g. Chilling, Gaming", max_length=100
+        label="Channel Status (shown below name)",
+        placeholder="e.g. Chilling, Gaming",
+        max_length=100,
     )
 
     def __init__(self, channel):
@@ -142,7 +150,9 @@ class ForbidSelect(discord.ui.Select):
         for member in channel.members:
             perms = channel.overwrites_for(member)
             if perms.connect is not False:
-                options.append(discord.SelectOption(label=member.display_name, value=f"user:{member.id}"))
+                options.append(
+                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
+                )
 
         # Add roles (excluding @everyone, managed roles, and already forbidden)
         for role in channel.guild.roles:
@@ -150,7 +160,9 @@ class ForbidSelect(discord.ui.Select):
                 continue
             perms = channel.overwrites_for(role)
             if perms.connect is not False:
-                options.append(discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}"))
+                options.append(
+                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
+                )
 
         super().__init__(
             placeholder="Select a user or role to forbid",
@@ -170,7 +182,8 @@ class ForbidSelect(discord.ui.Select):
         if target:
             await self.channel.set_permissions(target, connect=False)
             await interaction.response.send_message(
-                f"❌ {target.mention} has been forbidden from joining this channel.", ephemeral=True
+                f"❌ {target.mention} has been forbidden from joining this channel.",
+                ephemeral=True,
             )
 
 
@@ -183,7 +196,9 @@ class PermitSelect(discord.ui.Select):
         for member in channel.members:
             perms = channel.overwrites_for(member)
             if perms.connect is not True:
-                options.append(discord.SelectOption(label=member.display_name, value=f"user:{member.id}"))
+                options.append(
+                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
+                )
 
         # Add roles (excluding @everyone, managed roles, and already permitted)
         for role in channel.guild.roles:
@@ -191,7 +206,9 @@ class PermitSelect(discord.ui.Select):
                 continue
             perms = channel.overwrites_for(role)
             if perms.connect is not True:
-                options.append(discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}"))
+                options.append(
+                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
+                )
 
         super().__init__(
             placeholder="Select a user or role to permit",
@@ -239,20 +256,20 @@ class ChannelControlView(discord.ui.View):
         currently_locked = current.connect is False
 
         new_overwrite = discord.PermissionOverwrite(
-            view_channel=current.view_channel,
-            connect=None if currently_locked else False
+            view_channel=current.view_channel, connect=None if currently_locked else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
         # Update button label and style
         button.label = "🔓 Unlock" if currently_locked else "🔒 Lock"
-        button.style = discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+        button.style = (
+            discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+        )
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
-            "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.",
-            ephemeral=True
+            "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.", ephemeral=True
         )
 
     @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
@@ -285,8 +302,7 @@ class ChannelControlView(discord.ui.View):
         currently_hidden = current.view_channel is False
 
         new_overwrite = discord.PermissionOverwrite(
-            connect=current.connect,
-            view_channel=None if currently_hidden else False
+            connect=current.connect, view_channel=None if currently_hidden else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
@@ -296,8 +312,12 @@ class ChannelControlView(discord.ui.View):
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
-            "👁 Channel is now visible to everyone." if currently_hidden else "🙈 Channel hidden from others.",
-            ephemeral=True
+            (
+                "👁 Channel is now visible to everyone."
+                if currently_hidden
+                else "🙈 Channel hidden from others."
+            ),
+            ephemeral=True,
         )
 
     @discord.ui.button(label="🔄 Reset Channel", style=discord.ButtonStyle.secondary)
@@ -311,13 +331,10 @@ class ChannelControlView(discord.ui.View):
             if target != self.channel.guild.default_role:
                 del overwrites[target]
 
-        await self.channel.edit(
-            name="Voice Room",
-            user_limit=0,
-            topic=None,
-            overwrites=overwrites
+        await self.channel.edit(name="Voice Room", user_limit=0, topic=None, overwrites=overwrites)
+        await interaction.response.send_message(
+            "🔄 Channel reset to default settings.", ephemeral=True
         )
-        await interaction.response.send_message("🔄 Channel reset to default settings.", ephemeral=True)
 
     @discord.ui.button(label="➕ Permit", style=discord.ButtonStyle.success)
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -326,7 +343,9 @@ class ChannelControlView(discord.ui.View):
         select = PermitSelect(self.channel)
         view = discord.ui.View()
         view.add_item(select)
-        await interaction.response.send_message("Select a user or role to permit:", view=view, ephemeral=True)
+        await interaction.response.send_message(
+            "Select a user or role to permit:", view=view, ephemeral=True
+        )
 
     @discord.ui.button(label="➖ Forbid", style=discord.ButtonStyle.danger)
     async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -335,7 +354,9 @@ class ChannelControlView(discord.ui.View):
         select = ForbidSelect(self.channel)
         view = discord.ui.View()
         view.add_item(select)
-        await interaction.response.send_message("Select a user or role to forbid:", view=view, ephemeral=True)
+        await interaction.response.send_message(
+            "Select a user or role to forbid:", view=view, ephemeral=True
+        )
 
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
