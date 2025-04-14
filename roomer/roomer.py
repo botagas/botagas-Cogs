@@ -113,7 +113,6 @@ class Roomer(red_commands.Cog):
             view.update_dynamic_labels()
         except Exception:
             pass
-
         await self.schedule_deletion(new_channel)
 
     async def schedule_deletion(self, channel):
@@ -279,11 +278,10 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        # Update button label and style
-        button.label = "🔓 Unlock" if currently_locked else "🔒 Lock"
-        button.style = (
-            discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
-        )
+        # Update button labels and styles
+        self.update_dynamic_labels()
+
+        # Update the message with the updated view
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
@@ -325,8 +323,10 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        # Dynamically update button label
-        button.label = "👁 Unhide" if currently_hidden else "🙈 Hide"
+        # Update button labels and styles
+        self.update_dynamic_labels()
+
+        # Update the message with the updated view
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
