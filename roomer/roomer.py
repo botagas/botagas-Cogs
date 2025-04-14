@@ -268,7 +268,6 @@ class ChannelControlView(discord.ui.View):
             discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
         )
 
-
         # Update the message with the updated view
         await interaction.response.edit_message(view=self)
 
