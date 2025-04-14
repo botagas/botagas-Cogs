@@ -30,67 +30,45 @@ class Roomer(red_commands.Cog):
     async def red_delete_data_for_user(self, **kwargs):
         return
 
-    @red_commands.hybrid_group(name="roomer", with_app_command=True)
-    @red_commands.guild_only()
-    @red_commands.has_permissions(administrator=True)
-    async def roomer(self, ctx: red_commands.Context):
-        """Roomer configuration."""
-
-    @roomer.command(name="enable")
-    @red_commands.has_permissions(administrator=True)
-    async def enable(self, ctx: red_commands.Context):
+    @roomer_group.command(name="enable", description="Enable automatic voice channel creation.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def enable(self, interaction: discord.Interaction):
         """Enable automatic voice channel creation."""
-        await self.config.guild(ctx.guild).auto_enabled.set(True)
-        await ctx.send("Automatic voicechannel creation enabled.")
+        await self.config.guild(interaction.guild).auto_enabled.set(True)
+        await interaction.response.send_message("Automatic voicechannel creation enabled.")
 
-    @roomer.command(name="disable")
-    @red_commands.has_permissions(administrator=True)
-    async def disable(self, ctx: red_commands.Context):
+    @roomer_group.command(name="disable", description="Disable automatic voice channel creation.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def disable(self, interaction: discord.Interaction):
         """Disable automatic voice channel creation."""
-        await self.config.guild(ctx.guild).auto_enabled.set(False)
-        await ctx.send("Automatic voicechannel creation disabled.")
+        await self.config.guild(interaction.guild).auto_enabled.set(False)
+        await interaction.response.send_message("Automatic voicechannel creation disabled.")
 
-    @roomer.command(name="add")
-    @red_commands.has_permissions(administrator=True)
-    async def add_channel(self, ctx: red_commands.Context, channel: discord.VoiceChannel):
+    @roomer_group.command(name="add", description="Add a join-to-create channel.")
+    @app_commands.describe(channel="Voice channel to designate as join-to-create")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def add_channel(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
         """Add a join-to-create channel."""
-        channels = await self.config.guild(ctx.guild).auto_channels()
+        channels = await self.config.guild(interaction.guild).auto_channels()
         if channel.id not in channels:
             channels.append(channel.id)
-            await self.config.guild(ctx.guild).auto_channels.set(channels)
-            await ctx.send(f"Added {channel.mention} as a join-to-create channel.")
+            await self.config.guild(interaction.guild).auto_channels.set(channels)
+            await interaction.response.send_message(f"Added {channel.mention} as a join-to-create channel.")
         else:
-            await ctx.send("That channel is already configured.")
+            await interaction.response.send_message("That channel is already configured.")
 
-    @roomer.command(name="remove")
-    @red_commands.has_permissions(administrator=True)
-    async def remove_channel(self, ctx: red_commands.Context, channel: discord.VoiceChannel):
+    @roomer_group.command(name="remove", description="Remove a join-to-create channel.")
+    @app_commands.describe(channel="Voice channel to remove from join-to-create")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def remove_channel(self, interaction: discord.Interaction, channel: discord.VoiceChannel):
         """Remove a join-to-create channel."""
-        channels = await self.config.guild(ctx.guild).auto_channels()
+        channels = await self.config.guild(interaction.guild).auto_channels()
         if channel.id in channels:
             channels.remove(channel.id)
-            await self.config.guild(ctx.guild).auto_channels.set(channels)
-            await ctx.send(f"Removed {channel.mention} from join-to-create channels.")
+            await self.config.guild(interaction.guild).auto_channels.set(channels)
+            await interaction.response.send_message(f"Removed {channel.mention} from join-to-create channels.")
         else:
-            await ctx.send("That channel wasn't configured.")
-
-    @roomer.command(name="name")
-    @red_commands.has_permissions(administrator=True)
-    async def set_name(self, ctx: red_commands.Context, *, name: str):
-        """Set the name for auto-created voice channels."""
-        await self.config.guild(ctx.guild).name.set(name)
-        await ctx.send(f"Voice channels will now be named: **{name}**")
-
-    @roomer.command(name="limit")
-    @red_commands.has_permissions(administrator=True)
-    async def set_limit(self, ctx: red_commands.Context, limit: int = 0):
-        """Set user limit for auto-created voice channels (0 = no limit)."
-        Max limit is 99.
-        """
-        if limit > 99:
-            limit = 99
-        await self.config.guild(ctx.guild).user_limit.set(limit)
-        await ctx.send(f"User limit set to {limit}.")
+            await interaction.response.send_message("That channel wasn't configured.")
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -137,6 +115,104 @@ class Roomer(red_commands.Cog):
                 pass
 
 
+class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
+    status = discord.ui.TextInput(
+        label="Channel Status (shown below name)", placeholder="e.g. Chilling, Gaming", max_length=100
+    )
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.channel.edit(topic=self.status.value)
+        await interaction.response.send_message(
+            f"✅ Channel status updated to **{self.status.value}**.", ephemeral=True
+        )
+
+
+class ForbidSelect(discord.ui.Select):
+    def __init__(self, channel: discord.VoiceChannel):
+        self.channel = channel
+        options = []
+
+        # Add members who do not have connect=False
+        for member in channel.members:
+            perms = channel.overwrites_for(member)
+            if perms.connect is not False:
+                options.append(discord.SelectOption(label=member.display_name, value=f"user:{member.id}"))
+
+        # Add roles (excluding @everyone, managed roles, and already forbidden)
+        for role in channel.guild.roles:
+            if role.is_default() or role.managed:
+                continue
+            perms = channel.overwrites_for(role)
+            if perms.connect is not False:
+                options.append(discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}"))
+
+        super().__init__(
+            placeholder="Select a user or role to forbid",
+            min_values=1,
+            max_values=1,
+            options=options[:25],
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        kind, identifier = self.values[0].split(":")
+        target = None
+        if kind == "user":
+            target = self.channel.guild.get_member(int(identifier))
+        else:
+            target = self.channel.guild.get_role(int(identifier))
+
+        if target:
+            await self.channel.set_permissions(target, connect=False)
+            await interaction.response.send_message(
+                f"❌ {target.mention} has been forbidden from joining this channel.", ephemeral=True
+            )
+
+
+class PermitSelect(discord.ui.Select):
+    def __init__(self, channel: discord.VoiceChannel):
+        self.channel = channel
+        options = []
+
+        # Add members who do not have connect=True
+        for member in channel.members:
+            perms = channel.overwrites_for(member)
+            if perms.connect is not True:
+                options.append(discord.SelectOption(label=member.display_name, value=f"user:{member.id}"))
+
+        # Add roles (excluding @everyone, managed roles, and already permitted)
+        for role in channel.guild.roles:
+            if role.is_default() or role.managed:
+                continue
+            perms = channel.overwrites_for(role)
+            if perms.connect is not True:
+                options.append(discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}"))
+
+        super().__init__(
+            placeholder="Select a user or role to permit",
+            min_values=1,
+            max_values=1,
+            options=options[:25],  # Discord max
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        kind, identifier = self.values[0].split(":")
+        target = None
+        if kind == "user":
+            target = self.channel.guild.get_member(int(identifier))
+        else:
+            target = self.channel.guild.get_role(int(identifier))
+
+        if target:
+            await self.channel.set_permissions(target, connect=True)
+            await interaction.response.send_message(
+                f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
+            )
+
+
 class ChannelControlView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
@@ -152,24 +228,30 @@ class ChannelControlView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🔒 Lock", style=discord.ButtonStyle.danger)
-    async def lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="🔒 Lock/Unlock", style=discord.ButtonStyle.danger)
+    async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
         overwrites = self.channel.overwrites
-        overwrites[self.channel.guild.default_role] = discord.PermissionOverwrite(connect=False)
-        await self.channel.edit(overwrites=overwrites)
-        await interaction.response.send_message("🔒 Channel locked.", ephemeral=True)
+        current = overwrites.get(self.channel.guild.default_role, discord.PermissionOverwrite())
+        currently_locked = current.connect is False
 
-    @discord.ui.button(label="🔓 Unlock", style=discord.ButtonStyle.success)
-    async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not await self._check_permissions(interaction):
-            return
-        overwrites = self.channel.overwrites
-        if self.channel.guild.default_role in overwrites:
-            del overwrites[self.channel.guild.default_role]
+        new_overwrite = discord.PermissionOverwrite(
+            view_channel=current.view_channel,
+            connect=None if currently_locked else False
+        )
+        overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
-        await interaction.response.send_message("🔓 Channel unlocked.", ephemeral=True)
+
+        # Update button label and style
+        button.label = "🔓 Unlock" if currently_locked else "🔒 Lock"
+        button.style = discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+        await interaction.response.edit_message(view=self)
+
+        await interaction.followup.send(
+            "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.",
+            ephemeral=True
+        )
 
     @discord.ui.button(label="✏️ Rename", style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -184,6 +266,77 @@ class ChannelControlView(discord.ui.View):
             return
         modal = LimitModal(self.channel)
         await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="📝 Set Status", style=discord.ButtonStyle.secondary)
+    async def set_status(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        modal = SetStatusModal(self.channel)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="👁 Hide/Unhide", style=discord.ButtonStyle.secondary)
+    async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        overwrites = self.channel.overwrites
+        current = overwrites.get(self.channel.guild.default_role, discord.PermissionOverwrite())
+        currently_hidden = current.view_channel is False
+
+        new_overwrite = discord.PermissionOverwrite(
+            connect=current.connect,
+            view_channel=None if currently_hidden else False
+        )
+        overwrites[self.channel.guild.default_role] = new_overwrite
+        await self.channel.edit(overwrites=overwrites)
+
+        # Dynamically update button label
+        button.label = "👁 Unhide" if currently_hidden else "🙈 Hide"
+        await interaction.response.edit_message(view=self)
+
+        await interaction.followup.send(
+            "👁 Channel is now visible to everyone." if currently_hidden else "🙈 Channel hidden from others.",
+            ephemeral=True
+        )
+            "👁 Channel is now visible to everyone." if currently_hidden else "🙈 Channel hidden from others.",
+            ephemeral=True
+        )
+
+    @discord.ui.button(label="🔄 Reset Channel", style=discord.ButtonStyle.secondary)
+    async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        overwrites = self.channel.overwrites
+        if self.channel.guild.default_role in overwrites:
+            del overwrites[self.channel.guild.default_role]
+        for target in list(overwrites):
+            if target != self.channel.guild.default_role:
+                del overwrites[target]
+
+        await self.channel.edit(
+            name="Voice Room",
+            user_limit=0,
+            topic=None,
+            overwrites=overwrites
+        )
+        await interaction.response.send_message("🔄 Channel reset to default settings.", ephemeral=True)
+
+    @discord.ui.button(label="➕ Permit", style=discord.ButtonStyle.success)
+    async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        select = PermitSelect(self.channel)
+        view = discord.ui.View()
+        view.add_item(select)
+        await interaction.response.send_message("Select a user or role to permit:", view=view, ephemeral=True)
+
+    @discord.ui.button(label="➖ Forbid", style=discord.ButtonStyle.danger)
+    async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
+        select = ForbidSelect(self.channel)
+        view = discord.ui.View()
+        view.add_item(select)
+        await interaction.response.send_message("Select a user or role to forbid:", view=view, ephemeral=True)
 
     @discord.ui.button(label="🎙 Claim Room", style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
