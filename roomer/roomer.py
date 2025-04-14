@@ -290,7 +290,7 @@ class ChannelControlView(discord.ui.View):
 
         # Update button labels and styles
         button.style = (
-            discord.ButtonStyle.success if currently_locked else discord.ButtonStyle.danger
+            discord.ButtonStyle.success if currently_hidden else discord.ButtonStyle.danger
         )
 
         # Update the message with the updated view
