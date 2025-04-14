@@ -101,14 +101,14 @@ class Roomer(red_commands.Cog):
         self.channel_owners[new_channel.id] = member.id
 
         try:
-            view=ChannelControlView(new_channel, member.id, self)
+            view = ChannelControlView(new_channel, member.id, self)
             await new_channel.send(
                 embed=discord.Embed(
                     title="🔧 Voice Channel Controls",
                     description="Use the buttons below to control your channel.",
                     color=discord.Color.blurple(),
                 ),
-                view=ChannelControlView(new_channel, member.id, self)
+                view=ChannelControlView(new_channel, member.id, self),
             )
             view.update_dynamic_labels()
         except Exception:
