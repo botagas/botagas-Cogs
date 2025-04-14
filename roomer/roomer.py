@@ -101,6 +101,7 @@ class Roomer(red_commands.Cog):
         self.channel_owners[new_channel.id] = member.id
 
         try:
+            view=ChannelControlView(new_channel, member.id, self)
             await new_channel.send(
                 embed=discord.Embed(
                     title="🔧 Voice Channel Controls",
