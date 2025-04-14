@@ -233,10 +233,6 @@ class PermitSelect(discord.ui.Select):
             )
 
 
-                f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
-            )
-
-
 class ChannelControlView(discord.ui.View):
     def update_dynamic_labels(self):
         overwrites = self.channel.overwrites
