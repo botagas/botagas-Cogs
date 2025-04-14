@@ -86,6 +86,7 @@ class CaptchaVerifyButton(discord.ui.View):
                 file=discord.File(image_fp),
             )
             self.cog._captchas[member.id] = msg
+            self.cog._user_tries.setdefault(member.id, []).append(msg)
             await interaction.response.send_message(
                 "📩 I've sent you a DM with your captcha. Please reply there.",
                 ephemeral=True,
