@@ -401,12 +401,13 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         except ValueError:
             await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
 
+
 class ApplyPresetSelect(discord.ui.Select):
     def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=data.get("status") or "No status") 
+            discord.SelectOption(label=name, description=data.get("status") or "No status")
             for name, data in presets.items()
         ]
         super().__init__(
@@ -415,6 +416,7 @@ class ApplyPresetSelect(discord.ui.Select):
             min_values=1,
             max_values=1,
         )
+
     async def callback(self, interaction: discord.Interaction):
         selected = self.values[0]
         preset = self.presets.get(selected)
