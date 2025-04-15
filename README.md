@@ -57,7 +57,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
 
 #### New Behavior:
 - Channels are auto-deleted **after 10 seconds of inactivity**
-  - Channels are deleted only when it is empty
+  - Channels are deleted only when they are empty
   - Channel checks are triggered on voice state update
   - Even if the user is now present in another temporary channel right after leaving the previous one, the old channel is deleted if empty
 - Reset syncs permissions with the **parent category**
