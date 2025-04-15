@@ -368,23 +368,33 @@ class ChannelControlView(discord.ui.View):
     async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-
-        # Clear all overwrites
-        overwrites = self.channel.overwrites
-        overwrites.clear()
-
-        # Reset basic properties
-        await self.channel.edit(name="Voice Room", user_limit=0, topic=None, overwrites=overwrites)
-
-        # Manually update Lock and Hide buttons
+    
+        category = self.channel.category
+        new_overwrites = category.overwrites if category else {}
+    
+        await self.channel.edit(
+            name="Voice Room",
+            user_limit=0,
+            topic=None,
+            overwrites=new_overwrites
+        )
+    
+        # Re-sync button labels
+        updated = self.channel.overwrites.get(
+            self.channel.guild.default_role, discord.PermissionOverwrite()
+        )
+        locked = updated.connect is False
+        hidden = updated.view_channel is False
+    
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 if item.callback == self.toggle_lock:
-                    item.label = "🔒 Lock"
-                    item.style = discord.ButtonStyle.danger
+                    item.label = "🔓 Unlock" if locked else "🔒 Lock"
+                    item.style = (
+                        discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
+                    )
                 elif item.callback == self.toggle_visibility:
-                    item.label = "🙈 Hide"
-                    item.style = discord.ButtonStyle.secondary
+                    item.label = "👁 Unhide" if hidden else "🙈 Hide"
         await interaction.response.edit_message(view=self)
         await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
 
