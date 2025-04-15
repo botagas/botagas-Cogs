@@ -618,7 +618,7 @@ class ChannelControlView(discord.ui.View):
             await interaction.response.send_message(f"❌ Claim failed: {e}", ephemeral=True)
 
     @discord.ui.button(
-        label="🎮 Apply Preset",
+        label="🎮 Channel Preset",
         row=4,
         style=discord.ButtonStyle.secondary,
         custom_id="roomer:preset",
