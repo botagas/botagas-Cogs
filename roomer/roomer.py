@@ -506,8 +506,11 @@ class ChannelControlView(discord.ui.View):
         custom_id="apply_preset",
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = ApplyPresetModal(interaction.channel, interaction.client.get_cog("Roomer").config)
-        await interaction.response.send_modal(modal)
+        try:
+            modal = ApplyPresetModal(interaction.channel, interaction.client.get_cog("Roomer").config)
+            await interaction.response.send_modal(modal)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Failed to apply preset: {e}", ephemeral=True)
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
