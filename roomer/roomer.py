@@ -7,8 +7,6 @@ from redbot.core import Config
 from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
-roomer_group = app_commands.Group(name="roomer", description="Roomer configuration.")
-
 _ = Translator("Roomer", __file__)
 
 
@@ -17,6 +15,8 @@ class Roomer(red_commands.Cog):
     """
     Automatically create temporary voice channels when users join a join-to-create channel.
     """
+
+    roomer_group = app_commands.Group(name="roomer", description="Roomer configuration.")
 
     def __init__(self, bot):
         self.bot = bot
