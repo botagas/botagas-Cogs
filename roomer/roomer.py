@@ -632,7 +632,8 @@ class ChannelControlView(discord.ui.View):
             await interaction.response.send_message(
                 f"❌ Failed to execute command: {e}", ephemeral=True
             )
-        view = ApplyPresetSelect(interaction.channel, presets)
+        view = discord.ui.View()
+        view.add_item(ApplyPresetSelect(self.channel, presets))
         try:
             await interaction.response.send_message(
                 "🎮 Select a preset to apply:", view=view, ephemeral=True
