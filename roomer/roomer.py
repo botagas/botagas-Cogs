@@ -376,7 +376,7 @@ class ChannelControlView(discord.ui.View):
         new_overwrites = category.overwrites if category else {}
 
         await self.channel.edit(
-            name="Voice Room", user_limit=0, topic=None, overwrites=new_overwrites
+            name="Voice Room", user_limit=0, status=None, overwrites=new_overwrites
         )
 
         for item in self.children:
