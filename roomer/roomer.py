@@ -361,6 +361,7 @@ class PermitSelect(discord.ui.Select):
                 f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
             )
 
+
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
         label="New Channel Name", placeholder="Enter name...", max_length=100
@@ -400,18 +401,17 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         except ValueError:
             await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
 
+
 class ApplyPresetSelect(discord.ui.Select, title="Apply Game Preset"):
     def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=p["status"] or "No status") 
+            discord.SelectOption(label=name, description=p["status"] or "No status")
             for name in presets.items()
         ]
-        super().__init__(
-            placeholder="Select a preset to apply",
-            options=options
-        )
+        super().__init__(placeholder="Select a preset to apply", options=options)
+
     async def callback(self, interaction: discord.Interaction):
         selected = self.values[0]
         preset = self.presets.get[selected]
@@ -428,7 +428,8 @@ class ApplyPresetSelect(discord.ui.Select, title="Apply Game Preset"):
             await interaction.response.send_message(
                 f"❌ Failed to apply preset: {e}", ephemeral=True
             )
-    
+
+
 class PresetView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
         super().__init__(timeout=10)
@@ -627,11 +628,14 @@ class ChannelControlView(discord.ui.View):
             )
         view = ApplyPresetSelect(interaction.channel, presets)
         try:
-            await interaction.response.send_message("🎮 Select a preset to apply:", view=view, ephemeral=True)
+            await interaction.response.send_message(
+                "🎮 Select a preset to apply:", view=view, ephemeral=True
+            )
         except discord.HTTPException as e:
             await interaction.response.send_message(
                 f"❌ Failed to send message: {e}", ephemeral=True
             )
+
 
 async def setup(bot):
     await bot.add_cog(Roomer(bot))
