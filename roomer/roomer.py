@@ -80,6 +80,9 @@ class Roomer(red_commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
+        if before.channel and before.channel.id in self.channel_owners and len(before.channel.members) == 0:
+            await self.schedule_deletion(before.channel)
+        
         if not after or not after.channel:
             return
 
@@ -112,17 +115,19 @@ class Roomer(red_commands.Cog):
             )
         except Exception:
             pass
-        await self.schedule_deletion(new_channel)
 
-    async def schedule_deletion(self, channel):
-        await discord.utils.sleep_until(discord.utils.utcnow() + timedelta(minutes=1))
-        if len(channel.members) == 0:
+    async def schedule_deletion(self, channel: discord.VoiceChannel):
+        await asyncio.sleep(10)
+        if channel and len(channel.members) == 0:
             try:
                 await channel.delete(reason="Temporary voice channel expired")
             except discord.NotFound:
                 pass
-
-
+            except discord.Forbidden:
+                pass
+            finally:
+                self.channel_owners.pop(channel.id, None)
+    
 class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
     status = discord.ui.TextInput(
         label="Channel Status (shown below name)",
