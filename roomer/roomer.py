@@ -271,9 +271,8 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        updated = self.channel.overwrites.get(
-            self.channel.guild.default_role, discord.PermissionOverwrite()
-        )
+        await asyncio.sleep(0.3)  # Let Discord propagate permission changes
+        updated = self.channel.overwrites_for(self.channel.guild.default_role)
         locked = updated.connect is False
 
         # Update button labels and styles
@@ -301,12 +300,12 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        updated = self.channel.overwrites.get(
-            self.channel.guild.default_role, discord.PermissionOverwrite()
-        )
+        await asyncio.sleep(0.3)  # Let Discord propagate permission changes
+        updated = self.channel.overwrites_for(self.channel.guild.default_role)
         hidden = updated.view_channel is False
 
         # Update button labels and styles
+        button.label = "👁 Unhide" if locked else "👁 Hide"
         button.style = discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
 
         # Update the message with the updated view
