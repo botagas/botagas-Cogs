@@ -236,7 +236,7 @@ class PermitSelect(discord.ui.Select):
             target = self.channel.guild.get_role(int(identifier))
 
         if target:
-            await self.channel.set_permissions(target, connect=True)
+            await self.channel.set_permissions(target, connect=True, view_channel=True)
             await interaction.response.send_message(
                 f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
             )
