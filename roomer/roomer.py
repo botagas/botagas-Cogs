@@ -258,7 +258,7 @@ class ChannelControlView(discord.ui.View):
         return True
 
     @discord.ui.button(
-        label="🔓 Lock", row=0, custom_id="roomer:lock", style=discord.ButtonStyle.danger
+        label="🔒 Lock", row=0, custom_id="roomer:lock", style=discord.ButtonStyle.danger
     )
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
