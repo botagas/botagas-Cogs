@@ -375,6 +375,8 @@ class ChannelControlView(discord.ui.View):
             name="Voice Room", user_limit=0, topic=None, overwrites=new_overwrites
         )
 
+        self.channel = await self.channel.guild.fetch_channel(self.channel.id)
+
         # Re-sync button labels
         await asyncio.sleep(0.1)
         updated = self.channel.overwrites_for(self.channel.guild.default_role)
