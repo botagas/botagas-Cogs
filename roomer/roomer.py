@@ -289,7 +289,7 @@ class ChannelControlView(discord.ui.View):
         )
 
     @discord.ui.button(
-        label="👁 Hide", row=0, custom_i="roomer:hide", style=discord.ButtonStyle.danger
+        label="👁 Hide", row=0, custom_id="roomer:hide", style=discord.ButtonStyle.danger
     )
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
