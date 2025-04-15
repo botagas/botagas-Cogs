@@ -368,17 +368,26 @@ class ChannelControlView(discord.ui.View):
     async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
+    
+        # Clear all overwrites
         overwrites = self.channel.overwrites
-        if self.channel.guild.default_role in overwrites:
-            del overwrites[self.channel.guild.default_role]
-        for target in list(overwrites):
-            if target != self.channel.guild.default_role:
-                del overwrites[target]
-
+        overwrites.clear()
+    
+        # Reset basic properties
         await self.channel.edit(name="Voice Room", user_limit=0, topic=None, overwrites=overwrites)
-        await interaction.response.send_message(
-            "🔄 Channel reset to default settings.", ephemeral=True
-        )
+    
+        # Manually update Lock and Hide buttons
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                if item.callback == self.toggle_lock:
+                    item.label = "🔒 Lock"
+                    item.style = discord.ButtonStyle.danger
+                elif item.callback == self.toggle_visibility:
+                    item.label = "🙈 Hide"
+                    item.style = discord.ButtonStyle.secondary
+    
+    await interaction.response.edit_message(view=self)
+    await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
 
     @discord.ui.button(label="🎙 Claim Room", row=3, style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
