@@ -508,7 +508,7 @@ class ChannelControlView(discord.ui.View):
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             modal = ApplyPresetModal(
-                interaction.channel, interaction.client.get_cog("Roomer").config
+                interaction.channel, self.config
             )
             await interaction.response.send_modal(modal)
         except Exception as e:
@@ -558,8 +558,9 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
 
 
 class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
-    def __init__(self, cog: "Roomer", channel: discord.VoiceChannel):
+    def __init__(self, config: Config, channel: discord.VoiceChannel):
         super().__init__()
+        self.config = config
         self.channel = channel
         self.preset_name = discord.ui.TextInput(
             label="Preset Name", placeholder="Enter preset name"
