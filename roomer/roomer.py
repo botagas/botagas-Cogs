@@ -427,7 +427,7 @@ class ApplyPresetSelect(discord.ui.Select):
             await self.channel.edit(
                 name=preset["title"],
                 status=preset.get("status", None),
-                user_limit=min(preset.get["limit"] or 0, 99),
+                user_limit=min(preset.get("limit") or 0, 99),
             )
             await interaction.response.send_message(
                 f"✅ Applied preset **{selected}** to the channel.", ephemeral=True
