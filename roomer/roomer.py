@@ -271,7 +271,7 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        await asyncio.sleep(0.3)  # Let Discord propagate permission changes
+        await asyncio.sleep(0.1)  # Let Discord propagate permission changes
         updated = self.channel.overwrites_for(self.channel.guild.default_role)
         locked = updated.connect is False
 
@@ -300,7 +300,7 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        await asyncio.sleep(0.3)  # Let Discord propagate permission changes
+        await asyncio.sleep(0.1)  # Let Discord propagate permission changes
         updated = self.channel.overwrites_for(self.channel.guild.default_role)
         hidden = updated.view_channel is False
 
@@ -376,9 +376,8 @@ class ChannelControlView(discord.ui.View):
         )
 
         # Re-sync button labels
-        updated = self.channel.overwrites.get(
-            self.channel.guild.default_role, discord.PermissionOverwrite()
-        )
+        await asyncio.sleep(0.1)
+        updated = self.channel.overwrites_for(self.channel.guild.default_role)
         locked = updated.connect is False
         hidden = updated.view_channel is False
 
