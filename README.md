@@ -100,9 +100,9 @@ The new Captcha system uses **slash commands**, **modals**, and **UI buttons**. 
 
 ## 🙌 Credits
 
-- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha flow
-- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — Roomer base concept
-- Thanks to the [Red Discord Bot](https://discord.gg/red) community for testing and feedback
+- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha logic
+- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — for original Roomer logic
+- Thanks to the [Red Discord Bot](https://discord.gg/red) community for feedback and the Red Bot itself
 
 ---
 
