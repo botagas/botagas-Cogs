@@ -405,7 +405,7 @@ class ApplyPresetSelect(discord.ui.Select, title="Apply Game Preset"):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=p["status"]) or "No status") 
+            discord.SelectOption(label=name, description=p["status"] or "No status") 
             for name in presets.items()
         ]
         super().__init__(
