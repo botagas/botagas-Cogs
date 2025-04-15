@@ -387,7 +387,7 @@ class ChannelControlView(discord.ui.View):
                     item.style = discord.ButtonStyle.secondary
         await interaction.response.edit_message(view=self)
         await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
-    
+
     @discord.ui.button(label="🎙 Claim Room", row=3, style=discord.ButtonStyle.secondary)
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
