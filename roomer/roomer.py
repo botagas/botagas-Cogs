@@ -257,7 +257,7 @@ class ChannelControlView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🔓 Lock", row=0, style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="🔓 Lock", row=0, custom_id="roomer:lock", style=discord.ButtonStyle.danger)
     async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -286,7 +286,7 @@ class ChannelControlView(discord.ui.View):
             "🔓 Channel unlocked." if currently_locked else "🔒 Channel locked.", ephemeral=True
         )
 
-    @discord.ui.button(label="👁 Hide", row=0, style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="👁 Hide", row=0, custom_i="roomer:hide", style=discord.ButtonStyle.danger)
     async def toggle_visibility(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -377,10 +377,10 @@ class ChannelControlView(discord.ui.View):
 
         for item in self.children:
             if isinstance(item, discord.ui.Button):
-                if item.callback == self.toggle_lock:
+                if item.custom_id == "roomer:lock":
                     item.label = "🔒 Lock"
                     item.style = discord.ButtonStyle.danger
-                elif item.callback == self.toggle_visibility:
+                elif item.custom_id == "roomer:hide":
                     item.label = "🙈 Hide"
                     item.style = discord.ButtonStyle.danger
         await interaction.response.edit_message(view=self)
