@@ -112,6 +112,11 @@ class Roomer(red_commands.Cog):
                 return await interaction.response.send_message(
                     "❌ Provide both name and title to add a preset.", ephemeral=True
                 )
+            if name in presets:
+                await interaction.response.send_message(
+                    f"❌ Preset `{name}` already exists.", ephemeral=True
+                )
+                return
 
             if len(title) > 100:
                 return await interaction.response.send_message(
@@ -132,6 +137,23 @@ class Roomer(red_commands.Cog):
             await self.config.guild(interaction.guild).presets.set(presets)
             await interaction.response.send_message(
                 f"✅ Preset `{name}` has been added.", ephemeral=True
+            )
+        elif action.value == "edit":
+            if name not in presets:
+                await interaction.response.send_message(
+                    f"❌ Preset `{name}` does not exist.", ephemeral=True
+                )
+                return
+            if not title:
+                await interaction.response.send_message(
+                    "❌ Provide a title to edit a preset.", ephemeral=True
+                )
+                return
+            presets[name]["title"] = title
+            presets[name]["status"] = status or ""
+            await self.config.guild(interaction.guild).presets.set(presets)
+            await interaction.response.send_message(
+                f"✅ Preset `{name}` has been updated.", ephemeral=True
             )
 
         elif action.value == "delete":
