@@ -26,6 +26,7 @@ class Roomer(red_commands.Cog):
             auto_enabled=False,
             name="Voice Room",
             user_limit=None,
+            presets={},
         )
         self.channel_owners = {}
 
@@ -77,6 +78,74 @@ class Roomer(red_commands.Cog):
             )
         else:
             await interaction.response.send_message("That channel wasn't configured.")
+
+    @roomer_group.command(name="preset", description="Manage voice channel presets.")
+    @app_commands.describe(
+        action="add or delete",
+        name="Name of the preset",
+        title="Optional title for the voice channel",
+        status="Optional status for the channel",
+        limit="Optional user limit (0-99)"
+    )
+    @app_commands.choices(action=[
+        app_commands.Choice(name="add", value="add"),
+        app_commands.Choice(name="delete", value="delete"),
+        app_commands.Choice(name="list", value="list")
+    ])
+    @commands.has_permissions(administrator=True)
+    async def preset(
+        self,
+        interaction: discord.Interaction,
+        action: app_commands.Choice[str],
+        name: Optional[str] = None,
+        title: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ):
+        presets = await self.config.guild(interaction.guild).presets()
+
+        if action.value == "add":
+            if not name or not title:
+                return await interaction.response.send_message("❌ Provide both name and title to add a preset.", ephemeral=True)
+
+            if len(title) > 100:
+                return await interaction.response.send_message("❌ Title must be 100 characters or less.", ephemeral=True)
+
+            if status and len(status) > 500:
+                return await interaction.response.send_message("❌ Status must be 500 characters or less.", ephemeral=True)
+
+            if limit and (limit < 0 or limit > 99):
+                return await interaction.response.send_message("❌ Limit must be between 0 and 99.", ephemeral=True)
+
+            presets[name] = {
+                "title": title,
+                "status": status or "",
+                "limit": limit
+            }
+            await self.config.guild(interaction.guild).presets.set(presets)
+            await interaction.response.send_message(f"✅ Preset `{name}` has been added.", ephemeral=True)
+
+        elif action.value == "delete":
+            if not name or name not in presets:
+                return await interaction.response.send_message(f"❌ Preset `{name}` does not exist.", ephemeral=True)
+
+            del presets[name]
+            await self.config.guild(interaction.guild).presets.set(presets)
+            await interaction.response.send_message(f"🗑️ Preset `{name}` has been deleted.", ephemeral=True)
+
+        elif action.value == "list":
+            if not presets:
+                await interaction.response.send_message("No presets defined.", ephemeral=True)
+                return
+
+            embed = discord.Embed(title="🎮 Available Presets", color=discord.Color.blurple())
+            for name, data in presets.items():
+                desc = f"**Title:** {data.get('title') or 'N/A'}\n"
+                desc += f"**Status:** {data.get('status') or 'None'}\n"
+                desc += f"**Limit:** {data.get('limit') if data.get('limit') is not None else 'None'}"
+                embed.add_field(name=name, value=desc, inline=False)
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -415,6 +484,10 @@ class ChannelControlView(discord.ui.View):
         except Exception as e:
             await interaction.response.send_message(f"❌ Claim failed: {e}", ephemeral=True)
 
+    @discord.ui.button(label="🎮 Apply Preset", row=4, style=discord.ButtonStyle.secondary, custom_id="apply_preset")
+    async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = PresetModal(interaction.channel, interaction.client.get_cog("Roomer").config)
+        await interaction.response.send_modal(modal)
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
@@ -455,6 +528,32 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         except ValueError:
             await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
 
+class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
+    def __init__(self, cog: 'Roomer', channel: discord.VoiceChannel):
+        super().__init__()
+        self.cog = cog
+        self.channel = channel
+        self.preset_name = discord.ui.TextInput(label="Preset Name", placeholder="Enter preset name")
+        self.add_item(self.preset_name)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        presets = await self.cog.config.guild(interaction.guild).presets()
+        name = self.preset_name.value
+        preset = presets.get(name)
+
+        if not preset:
+            return await interaction.response.send_message(f"❌ Preset `{name}` not found.", ephemeral=True)
+
+        updates = {}
+        if title := preset.get("title"):
+            updates["name"] = title
+        if status := preset.get("status"):
+            updates["status"] = status
+        if limit := preset.get("limit"):
+            updates["user_limit"] = limit
+
+        await self.channel.edit(**updates)
+        await interaction.response.send_message(f"✅ Applied preset `{name}` to the channel.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Roomer(bot))
