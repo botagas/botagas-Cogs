@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 
 import discord
 from discord import app_commands
@@ -6,7 +7,6 @@ from discord.ext import commands
 from redbot.core import Config
 from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
-from typing import Optional
 
 _ = Translator("Roomer", __file__)
 
