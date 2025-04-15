@@ -62,7 +62,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
   - Even if the user is now present in another temporary channel right after leaving the previous one, the old channel is deleted if empty
 - Reset syncs permissions with the **parent category**
 - Lock/Hide buttons reflect the **current state** of the `connect` / `view_channel` permissions
-- Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide buttons
+- Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide` buttons
 
 #### WIP:
 - Full automatic translation support using **Red’s translation system** via github actions
