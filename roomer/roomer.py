@@ -400,26 +400,31 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
         except ValueError:
             await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
 
-class ApplyPresetSelect(discord.ui.Select, title="Apply Game Preset"):
+class ApplyPresetSelect(discord.ui.Select):
     def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=p["status"] or "No status") 
-            for name in presets.items()
+            discord.SelectOption(label=name, description=data.get("status") or "No status") 
+            for name, data in presets.items()
         ]
         super().__init__(
             placeholder="Select a preset to apply",
-            options=options
+            options=options,
+            min_values=1,
+            max_values=1,
         )
     async def callback(self, interaction: discord.Interaction):
         selected = self.values[0]
-        preset = self.presets.get[selected]
+        preset = self.presets.get(selected)
+        if not preset:
+            await interaction.response.send_message("❌ Preset not found.", ephemeral=True)
+            return
         try:
             await self.channel.edit(
                 name=preset["title"],
-                status=preset["status"],
-                user_limit=min(preset["limit"] or 0, 99),
+                status=preset.get["status"] or None,
+                user_limit=min(preset.get["limit"] or 0, 99),
             )
             await interaction.response.send_message(
                 f"✅ Applied preset **{selected}** to the channel.", ephemeral=True
