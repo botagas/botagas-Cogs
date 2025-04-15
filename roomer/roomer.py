@@ -361,6 +361,7 @@ class PermitSelect(discord.ui.Select):
                 f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
             )
 
+
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
         label="New Channel Name", placeholder="Enter name...", max_length=100
@@ -433,7 +434,8 @@ class ApplyPresetSelect(discord.ui.Select):
             await interaction.response.send_message(
                 f"❌ Failed to apply preset: {e}", ephemeral=True
             )
-    
+
+
 class PresetView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
         super().__init__(timeout=10)
@@ -632,11 +634,14 @@ class ChannelControlView(discord.ui.View):
             )
         view = ApplyPresetSelect(interaction.channel, presets)
         try:
-            await interaction.response.send_message("🎮 Select a preset to apply:", view=view, ephemeral=True)
+            await interaction.response.send_message(
+                "🎮 Select a preset to apply:", view=view, ephemeral=True
+            )
         except discord.HTTPException as e:
             await interaction.response.send_message(
                 f"❌ Failed to send message: {e}", ephemeral=True
             )
+
 
 async def setup(bot):
     await bot.add_cog(Roomer(bot))
