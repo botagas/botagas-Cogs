@@ -135,7 +135,7 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
         self.channel = channel
 
     async def on_submit(self, interaction: discord.Interaction):
-        await self.channel.edit(topic=self.status.value)
+        await self.channel.edit(status=self.status.value)
         await interaction.response.send_message(
             f"✅ Channel status updated to **{self.status.value}**.", ephemeral=True
         )
