@@ -1,4 +1,3 @@
-from datetime import timedelta
 
 import discord
 from discord import app_commands
@@ -80,9 +79,13 @@ class Roomer(red_commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        if before.channel and before.channel.id in self.channel_owners and len(before.channel.members) == 0:
+        if (
+            before.channel
+            and before.channel.id in self.channel_owners
+            and len(before.channel.members) == 0
+        ):
             await self.schedule_deletion(before.channel)
-        
+
         if not after or not after.channel:
             return
 
@@ -127,7 +130,8 @@ class Roomer(red_commands.Cog):
                 pass
             finally:
                 self.channel_owners.pop(channel.id, None)
-    
+
+
 class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
     status = discord.ui.TextInput(
         label="Channel Status (shown below name)",
