@@ -556,7 +556,6 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
 class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
     def __init__(self, cog: "Roomer", channel: discord.VoiceChannel):
         super().__init__()
-        self.cog = cog
         self.channel = channel
         self.preset_name = discord.ui.TextInput(
             label="Preset Name", placeholder="Enter preset name"
@@ -564,7 +563,7 @@ class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
         self.add_item(self.preset_name)
 
     async def on_submit(self, interaction: discord.Interaction):
-        presets = await self.cog.config.guild(interaction.guild).presets()
+        presets = await self.config.guild(interaction.guild).presets()
         name = self.preset_name.value
         preset = presets.get(name)
 
