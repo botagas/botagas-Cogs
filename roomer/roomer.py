@@ -437,13 +437,6 @@ class ApplyPresetSelect(discord.ui.Select):
                 f"❌ Failed to apply preset: {e}", ephemeral=True
             )
 
-
-class PresetView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
-        super().__init__(timeout=10)
-        self.add_item(PresetSelect(channel, presets))
-
-
 class ChannelControlView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
         super().__init__(timeout=None)
