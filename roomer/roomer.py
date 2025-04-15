@@ -368,24 +368,21 @@ class ChannelControlView(discord.ui.View):
     async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-    
+
         category = self.channel.category
         new_overwrites = category.overwrites if category else {}
-    
+
         await self.channel.edit(
-            name="Voice Room",
-            user_limit=0,
-            topic=None,
-            overwrites=new_overwrites
+            name="Voice Room", user_limit=0, topic=None, overwrites=new_overwrites
         )
-    
+
         # Re-sync button labels
         updated = self.channel.overwrites.get(
             self.channel.guild.default_role, discord.PermissionOverwrite()
         )
         locked = updated.connect is False
         hidden = updated.view_channel is False
-    
+
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 if item.callback == self.toggle_lock:
