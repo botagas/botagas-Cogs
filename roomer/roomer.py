@@ -375,22 +375,14 @@ class ChannelControlView(discord.ui.View):
             name="Voice Room", user_limit=0, topic=None, overwrites=new_overwrites
         )
 
-        # Re-sync button labels
-        await asyncio.sleep(0.1)
-        default_role = self.channel.guild.default_role
-        updated = self.channel.overwrites.get(default_role, discord.PermissionOverwrite())
-        locked = updated.connect is False
-        hidden = updated.view_channel is False
-
         for item in self.children:
             if isinstance(item, discord.ui.Button):
                 if item.callback == self.toggle_lock:
-                    item.label = "🔓 Unlock" if locked else "🔒 Lock"
-                    item.style = (
-                        discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
-                    )
+                    item.label = "🔒 Lock"
+                    item.style = discord.ButtonStyle.danger
                 elif item.callback == self.toggle_visibility:
-                    item.label = "👁 Unhide" if hidden else "🙈 Hide"
+                    item.label = "🙈 Hide"
+                    item.style = discord.ButtonStyle.danger
         await interaction.response.edit_message(view=self)
         await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
 
