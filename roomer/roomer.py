@@ -556,7 +556,7 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
 
 
 class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
-    def __init__(self, config: Config, channel: discord.VoiceChannel):
+    def __init__(self, channel: discord.VoiceChannel, config: Config):
         super().__init__()
         self.config = config
         self.channel = channel
