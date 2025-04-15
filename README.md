@@ -55,11 +55,14 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
   - Status (optional)
   - Limit (optional)
 
-#### Intelligent Behavior:
+#### New Behavior:
 - Channels are auto-deleted **after 10 seconds of inactivity**
 - Reset syncs permissions with the **parent category**
 - Lock/Hide buttons reflect the **current state** of the `connect` / `view_channel` permissions
 - Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide buttons
+- Channels are deleted only when all users leave the channel
+  - Channel checks are triggered on voice state update
+  - Even if the user is now present in another temporary channel right after leaving previous one, the old channel is deleted if empty
 
 #### WIP:
 - Full automatic translation support using **Red’s translation system** via github actions
