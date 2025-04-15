@@ -82,7 +82,7 @@ class Roomer(red_commands.Cog):
 
     @roomer_group.command(name="preset", description="Manage voice channel presets.")
     @app_commands.describe(
-        action="add or delete",
+        action="add, edit or delete",
         name="Name of the preset",
         title="Optional title for the voice channel",
         status="Optional status for the channel",
@@ -91,6 +91,7 @@ class Roomer(red_commands.Cog):
     @app_commands.choices(
         action=[
             app_commands.Choice(name="add", value="add"),
+            app_commands.Choice(name="edit", value="edit"),
             app_commands.Choice(name="delete", value="delete"),
             app_commands.Choice(name="list", value="list"),
         ]
