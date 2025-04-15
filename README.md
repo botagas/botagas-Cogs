@@ -23,67 +23,87 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 
 ## 🧩 Available Cogs
 
-### 🏠 Roomer (reworked)
-Roomer now fully supports **slash commands** via `/roomer`.
+### 🏠 Roomer (fully reworked)
+Roomer now supports **slash commands**, **interactive buttons**, **modals**, **select menus**, and **game presets** for managing temporary voice channels.
 
-#### Supported Slash Commands:
-- `/roomer add <channel>`
-- `/roomer enable`
-- `/roomer disable`
+#### Slash Commands:
+- `/roomer add <channel>` - Set `Join to Create` channel
+- `/roomer remove <channel>` - Remove `Join to Create` channel
+- `/roomer enable` - Enable automatic temporary channel creation
+- `/roomer disable` - Disable automatic temporary channel creation
+- `/roomer preset` — Manage game presets (`add`, `edit`, `delete`, `list`)
 
-#### New Features:
-- Sends an embed to the room channel with the following **modals**:
-  - **Lock / Unlock** — Toggle access for `@everyone`
-  - **Rename** — Set a custom name for the channel
-  - **Set Limit** — Define max users in the room
-  - **Claim Room** — Take over ownership if the original creator has left
-- Room settings are only changeable by the channel creator or current owner
-#### WIP Features:
-- Change status of the channel
-- Forbid / Permit user / role
-- Hide / Unhide channel
-- Game Presets
+#### Core Features:
+- Automatically creates voice channels when users join a **Join-to-Create (JTC)** channel
+- Sends an interactive control panel to the room’s text chat with:
+  - 🔒 **Lock / Unlock** — Toggle `@everyone`'s `connect` permission
+  - 🙈 **Hide / Unhide** — Toggle `@everyone`'s `view_channel` permission
+  - ➕ **Permit** — Grant access to selected members or roles
+  - ➖ **Forbid** — Deny access to selected members or roles
+  - ✏️ **Rename** — Change the voice channel name
+  - 📝 **Set Status** — Set a voice channel status
+  - 👥 **Set Limit** — Max user cap (up to 99)
+  - 🔄 **Reset Channel** — Revert to default settings from the JTC category
+  - 🎙 **Claim Room** — Claim ownership if the owner is no longer present
+  - 🎮 **Channel Preset** — Apply a predefined channel preset (sets `title`, `status`, `limit`)
+
+#### Game Presets:
+- Admins can define game presets with `/roomer preset` `add` / `edit` / `delete`
+- Users can apply presets from the UI dropdown after pressing `🎮 Channel Preset`
+- Each preset includes:
+  - Title (required)
+  - Status (optional)
+  - Limit (optional)
+
+#### Intelligent Behavior:
+- Channels are auto-deleted **after 10 seconds of inactivity**
+- Reset syncs permissions with the **parent category**
+- Lock/Hide buttons reflect the **current state** of the `connect` / `view_channel` permissions
+- Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide buttons
+
+#### WIP:
+- Full automatic translation support using **Red’s translation system** via github actions
 
 ---
 
-### 🧪 Captcha (reworked)
-The new Captcha system uses **modals and interactions** instead of classic text command responses. No more clutter from join messages and replies.
+### 🧪 Captcha (fully reworked)
+The new Captcha system uses **slash commands**, **modals**, and **UI buttons**. No more clutter from join messages and replies.
 
-#### Supported Slash Commands:
+#### Slash Commands:
 - `/captcha channel <channel>` — Set the verification channel
-- `/captcha toggle` — Enable/disable captcha verification
+- `/captcha toggle` — Enable/disable verification
 - `/captcha deploy` — Deploy the verification embed
-- `/captcha role <VerifiedRole>` — Assign verified role
-- `/captcha unverifiedrole <UnverifiedRole>` — Assign unverified role
-- `/captcha tries <number>` — Set max attempts
-- `/captcha timeout <number>` — Set timeout before invalidating verification attempt
-- `/captcha embed <text>` — Set embed message
-- `/captcha before <text>` — Message shown before verification
+- `/captcha role <VerifiedRole>` — Role to assign upon verification
+- `/captcha unverifiedrole <UnverifiedRole>` — Role before verification
+- `/captcha tries <number>` — Number of attempts allowed
+- `/captcha timeout <seconds>` — How long the captcha is valid
+- `/captcha embed <text>` — Set message for the embed
+- `/captcha before <text>` — Message shown before captcha
 - `/captcha after <text>` — Message shown after success
 
 #### Features:
-- Deploys a **persistent embed** with a verification button
-- Two verification methods:
-  - _If DMs are enabled_: user gets a DM with an image captcha
-  - _If DMs are disabled_: fallback to a **modal** with code input
-- Instead of kicking the user on timeout, now the verification attempt is invalidated and the user can try again.
-- **Automatic cleanup**:
-  - Captcha messages in DMs are auto-deleted after verification
-  - Server messages are cleaned up via async background task
+- Verification message is persistent and interactive
+- DM-enabled users receive an image captcha
+- DM-disabled users fallback to modal-based verification
+- Captchas automatically **expire and invalidate** after timeout
+- Users can retry if captcha expires or fails
+- Cleans up messages automatically
+- Supports **custom before/after/embed messages**
 
-#### Known Limitations:
-- ⚠️ After a bot restart or cog reload, you must re-run `/captcha deploy` to re-send the verification message. The old message is deleted automatically.
+#### Known Limitation / WIP:
+- After a restart or reload, you must re-run `/captcha deploy` to restore the verification button for proper operation
 
 ---
 
 ## 🙌 Credits
 
-- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for the original Captcha logic
-- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — for Roomer base
-- Thanks to the [Red Discord Bot](https://discord.gg/red) community for continuous support
+- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha flow
+- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — Roomer base concept
+- Thanks to the [Red Discord Bot](https://discord.gg/red) community for testing and feedback
 
 ---
 
 ## 💬 Need Help?
 
-Join the official [`Red - Cog Support`](https://discord.gg/GET4DVk) server for help or questions. I do not have a support channel, but I am present as **`@Winter`**.
+Join [`Red - Cog Support`](https://discord.gg/GET4DVk) for help or questions.  
+I don’t have my own support channel, but you may find me there as **`@Winter`**. GitHub issue reports are welcome.
