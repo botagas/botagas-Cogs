@@ -506,7 +506,7 @@ class ChannelControlView(discord.ui.View):
         custom_id="apply_preset",
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = PresetModal(interaction.channel, interaction.client.get_cog("Roomer").config)
+        modal = ApplyPresetModal(interaction.channel, interaction.client.get_cog("Roomer").config)
         await interaction.response.send_modal(modal)
 
 
