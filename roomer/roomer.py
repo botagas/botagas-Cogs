@@ -85,7 +85,7 @@ class Roomer(red_commands.Cog):
             and before.channel.id in self.channel_owners
             and len(before.channel.members) == 0
         ):
-            await self.schedule_deletion(before.channel)
+            asyncio.create_task(self.schedule_deletion(before.channel))
 
         if not after or not after.channel:
             return
