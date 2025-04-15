@@ -150,8 +150,21 @@ class Roomer(red_commands.Cog):
                     "❌ Provide a title to edit a preset.", ephemeral=True
                 )
                 return
+            if len(title) > 100:
+                return await interaction.response.send_message(
+                    "❌ Title must be 100 characters or less.", ephemeral=True
+                )
+            if status and len(status) > 500:
+                return await interaction.response.send_message(
+                    "❌ Status must be 500 characters or less.", ephemeral=True
+                )
+            if limit and (limit < 0 or limit > 99):
+                return await interaction.response.send_message(
+                    "❌ Limit must be between 0 and 99.", ephemeral=True
+                )
             presets[name]["title"] = title
             presets[name]["status"] = status or ""
+            presets[name]["limit"] = limit if limit is not None else presets[name].get("limit", 0)
             await self.config.guild(interaction.guild).presets.set(presets)
             await interaction.response.send_message(
                 f"✅ Preset `{name}` has been updated.", ephemeral=True
@@ -348,6 +361,79 @@ class PermitSelect(discord.ui.Select):
                 f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
             )
 
+class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
+    name = discord.ui.TextInput(
+        label="New Channel Name", placeholder="Enter name...", max_length=100
+    )
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.channel.edit(name=self.name.value)
+        await interaction.response.send_message(
+            f"✅ Renamed channel to **{self.name.value}**.", ephemeral=True
+        )
+
+
+class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
+    limit = discord.ui.TextInput(
+        label="User Limit (leave blank for unlimited)",
+        placeholder="e.g. 5",
+        required=False,
+        max_length=3,
+    )
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            value = int(self.limit.value) if self.limit.value else 0
+            value = min(value, 99)
+            await self.channel.edit(user_limit=value)
+            await interaction.response.send_message(
+                f"✅ User limit set to **{value or 'unlimited'}**.", ephemeral=True
+            )
+        except ValueError:
+            await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
+
+class ApplyPresetSelect(discord.ui.Select, title="Apply Game Preset"):
+    def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
+        self.channel = channel
+        self.presets = presets
+        options = [
+            discord.SelectOption(label=name, description=p["status"]) or "No status") 
+            for name in presets.items()
+        ]
+        super().__init__(
+            placeholder="Select a preset to apply",
+            options=options
+        )
+    async def callback(self, interaction: discord.Interaction):
+        selected = self.values[0]
+        preset = self.presets.get[selected]
+        try:
+            await self.channel.edit(
+                name=preset["title"],
+                status=preset["status"],
+                user_limit=min(preset["limit"] or 0, 99),
+            )
+            await interaction.response.send_message(
+                f"✅ Applied preset **{selected}** to the channel.", ephemeral=True
+            )
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ Failed to apply preset: {e}", ephemeral=True
+            )
+    
+class PresetView(discord.ui.View):
+    def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
+        super().__init__(timeout=10)
+        self.add_item(PresetSelect(channel, presets))
+
 
 class ChannelControlView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, owner_id: int, cog: Roomer):
@@ -526,91 +612,26 @@ class ChannelControlView(discord.ui.View):
         label="🎮 Apply Preset",
         row=4,
         style=discord.ButtonStyle.secondary,
-        custom_id="apply_preset",
+        custom_id="roomer:preset",
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
-            modal = ApplyPresetModal(interaction.channel, self.cog.config)
-            await interaction.response.send_modal(modal)
+            config = interaction.client.get_cog("Roomer").config
+            presets = await config.guild(interaction.guild).presets()
+            if not presets:
+                await interaction.response.send_message("❌ No presets available.", ephemeral=True)
+                return
         except Exception as e:
             await interaction.response.send_message(
-                f"❌ Failed to apply preset: {e}", ephemeral=True
+                f"❌ Failed to execute command: {e}", ephemeral=True
             )
-
-
-class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
-    name = discord.ui.TextInput(
-        label="New Channel Name", placeholder="Enter name...", max_length=100
-    )
-
-    def __init__(self, channel):
-        super().__init__()
-        self.channel = channel
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await self.channel.edit(name=self.name.value)
-        await interaction.response.send_message(
-            f"✅ Renamed channel to **{self.name.value}**.", ephemeral=True
-        )
-
-
-class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
-    limit = discord.ui.TextInput(
-        label="User Limit (leave blank for unlimited)",
-        placeholder="e.g. 5",
-        required=False,
-        max_length=3,
-    )
-
-    def __init__(self, channel):
-        super().__init__()
-        self.channel = channel
-
-    async def on_submit(self, interaction: discord.Interaction):
+        view = ApplyPresetSelect(interaction.channel, presets)
         try:
-            value = int(self.limit.value) if self.limit.value else 0
-            value = min(value, 99)
-            await self.channel.edit(user_limit=value)
+            await interaction.response.send_message("🎮 Select a preset to apply:", view=view, ephemeral=True)
+        except discord.HTTPException as e:
             await interaction.response.send_message(
-                f"✅ User limit set to **{value or 'unlimited'}**.", ephemeral=True
+                f"❌ Failed to send message: {e}", ephemeral=True
             )
-        except ValueError:
-            await interaction.response.send_message("❌ Invalid input.", ephemeral=True)
-
-
-class ApplyPresetModal(discord.ui.Modal, title="Apply Game Preset"):
-    def __init__(self, channel: discord.VoiceChannel, config: Config):
-        super().__init__()
-        self.config = config
-        self.channel = channel
-        self.preset_name = discord.ui.TextInput(
-            label="Preset Name", placeholder="Enter preset name"
-        )
-        self.add_item(self.preset_name)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        presets = await self.config.guild(interaction.guild).get_raw("presets", default={})
-        name = self.preset_name.value
-        preset = presets.get(name)
-
-        if not preset:
-            return await interaction.response.send_message(
-                f"❌ Preset `{name}` not found.", ephemeral=True
-            )
-
-        updates = {}
-        if title := preset.get("title"):
-            updates["name"] = title
-        if status := preset.get("status"):
-            updates["status"] = status
-        if limit := preset.get("limit"):
-            updates["user_limit"] = limit
-
-        await self.channel.edit(**updates)
-        await interaction.response.send_message(
-            f"✅ Applied preset `{name}` to the channel.", ephemeral=True
-        )
-
 
 async def setup(bot):
     await bot.add_cog(Roomer(bot))
