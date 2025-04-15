@@ -507,9 +507,7 @@ class ChannelControlView(discord.ui.View):
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
-            modal = ApplyPresetModal(
-                interaction.channel, self.config
-            )
+            modal = ApplyPresetModal(interaction.channel, self.config)
             await interaction.response.send_modal(modal)
         except Exception as e:
             await interaction.response.send_message(
