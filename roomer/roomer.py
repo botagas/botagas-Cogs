@@ -305,7 +305,7 @@ class ChannelControlView(discord.ui.View):
         hidden = updated.view_channel is False
 
         # Update button labels and styles
-        button.label = "👁 Unhide" if locked else "👁 Hide"
+        button.label = "👁 Unhide" if hidden else "👁 Hide"
         button.style = discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
 
         # Update the message with the updated view
