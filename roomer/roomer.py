@@ -145,26 +145,29 @@ class Roomer(red_commands.Cog):
                     f"❌ Preset `{name}` does not exist.", ephemeral=True
                 )
                 return
-            if not title:
-                await interaction.response.send_message(
-                    "❌ Provide a title to edit a preset.", ephemeral=True
-                )
-                return
-            if len(title) > 100:
-                return await interaction.response.send_message(
-                    "❌ Title must be 100 characters or less.", ephemeral=True
-                )
-            if status and len(status) > 500:
-                return await interaction.response.send_message(
-                    "❌ Status must be 500 characters or less.", ephemeral=True
-                )
-            if limit and (limit < 0 or limit > 99):
-                return await interaction.response.send_message(
-                    "❌ Limit must be between 0 and 99.", ephemeral=True
-                )
-            presets[name]["title"] = title
-            presets[name]["status"] = status or ""
-            presets[name]["limit"] = limit if limit is not None else presets[name].get("limit", 0)
+            
+            # Update only the fields that are provided
+            if title:
+                if len(title) > 100:
+                    return await interaction.response.send_message(
+                        "❌ Title must be 100 characters or less.", ephemeral=True
+                    )
+                presets[name]["title"] = title
+
+            if status:
+                if len(status) > 500:
+                    return await interaction.response.send_message(
+                        "❌ Status must be 500 characters or less.", ephemeral=True
+                    )
+                presets[name]["status"] = status
+
+            if limit is not None:
+                if limit < 0 or limit > 99:
+                    return await interaction.response.send_message(
+                        "❌ Limit must be between 0 and 99.", ephemeral=True
+                    )
+                presets[name]["limit"] = limit
+
             await self.config.guild(interaction.guild).presets.set(presets)
             await interaction.response.send_message(
                 f"✅ Preset `{name}` has been updated.", ephemeral=True
