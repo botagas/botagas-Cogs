@@ -145,7 +145,7 @@ class Roomer(red_commands.Cog):
                     f"❌ Preset `{name}` does not exist.", ephemeral=True
                 )
                 return
-            
+
             # Update only the fields that are provided
             if title:
                 if len(title) > 100:
