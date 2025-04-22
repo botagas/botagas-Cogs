@@ -280,13 +280,15 @@ class PaginatedSelect(discord.ui.Select):
         self.page = page
         self.per_page = per_page
 
+        # Paginate the options
         start = page * per_page
         end = start + per_page
         paginated_options = options[start:end]
 
+        # Initialize the parent class with the paginated options
         super().__init__(
             placeholder=f"Page {page + 1}/{(len(options) - 1) // per_page + 1}",
-            options=paginated_options,
+            options=paginated_options,  # Must be a list of discord.SelectOption
             min_values=1,
             max_values=len(paginated_options),
         )
