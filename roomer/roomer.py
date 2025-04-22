@@ -302,8 +302,12 @@ class PaginatedSelect(discord.ui.Select):
                 target = self.channel.guild.get_role(int(identifier))
 
             if target:
-                await self.channel.set_permissions(target, connect=False)
-                mentions.append(target.mention)
+                if self.action == "permit":
+                    await self.channel.set_permissions(target, connect=True, view_channel=True)
+                    mentions.append(target.mention)
+                elif self.action == "forbid":
+                    await self.channel.set_permissions(target, connect=False)
+                    mentions.append(target.mention)
 
         if mentions:
             await interaction.response.send_message(
