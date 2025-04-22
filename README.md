@@ -26,14 +26,23 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 [p]slash sync
 ```
 
-Required permissions for the category: `View Channels, Manage Channels, Manage Permissions, Send Messages, Embed Links, Connect, Speak, Set Voice Channel Status, Move Members`.
-
 ---
 
 ## 🧩 Available Cogs
 
 ### 🏠 Roomer (fully reworked)
 Roomer now supports **slash commands**, **interactive buttons**, **modals**, **select menus**, and **game presets** for managing temporary voice channels.
+
+#### Required Category Permissions
+- `View Channels` - To view channels
+- `Manage Channels` - To update, edit, delete channels
+- `Manage Permissions` - To alter permissions for roles/users in the channels
+- `Send Messages` - To send messages in voice channels
+- `Embed Links` - To send embeds in voice channels
+- `Connect` - To connect to channels and alter them
+- `Speak` - To speak in channels if needed (optional)
+- `Set Voice Channel Status` - To set channel activity status
+- `Move Members` - To move members to their respective channels
 
 #### Slash Commands:
 - `/roomer add <channel>` - Set `Join to Create` channel
