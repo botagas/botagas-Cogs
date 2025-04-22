@@ -328,23 +328,19 @@ class PaginationView(discord.ui.View):
         self.clear_items()
         self.add_item(PaginatedSelect(self.channel, self.options, page=self.page))
 
-        if self.page > 0:
-            self.add_item(self.previous_page_button)
-
-        if (self.page + 1) * 25 < len(self.options):
-            self.add_item(self.next_page_button)
-
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, row=0)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page -= 1
-        self.update_select()
-        await interaction.response.edit_message(view=self)
+        if self.page > 0:
+            self.page -= 1
+            self.update_select()
+            await interaction.response.edit_message(view=self)
 
     @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.page += 1
-        self.update_select()
-        await interaction.response.edit_message(view=self)
+        if (self.page + 1) * 25 < len(self.options):
+            self.page += 1
+            self.update_select()
+            await interaction.response.edit_message(view=self)
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
