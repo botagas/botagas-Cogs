@@ -349,9 +349,8 @@ class PaginationView(discord.ui.View):
             self.update_select()
             await interaction.response.edit_message(view=self)
         else:
-            await interaction.response.send_message(
-                "❌ There is no next page.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ There is no next page.", ephemeral=True)
+
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
