@@ -330,8 +330,6 @@ class PaginationView(discord.ui.View):
         self.add_item(
             PaginatedSelect(self.channel, self.options, page=self.page, per_page=self.per_page)
         )
-        self.previous_page.disabled = self.page == 0
-        self.next_page.disabled = (self.page + 1) * self.per_page >= len(self.options)
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, row=0)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -339,6 +337,10 @@ class PaginationView(discord.ui.View):
             self.page -= 1
             self.update_select()
             await interaction.response.edit_message(view=self)
+        else:
+            await interaction.response.send_message(
+                "❌ There is the first page.", ephemeral=True
+            )
 
     @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -346,7 +348,10 @@ class PaginationView(discord.ui.View):
             self.page += 1
             self.update_select()
             await interaction.response.edit_message(view=self)
-
+        else:
+            await interaction.response.send_message(
+                "❌ This is the last page.", ephemeral=True
+            )
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
