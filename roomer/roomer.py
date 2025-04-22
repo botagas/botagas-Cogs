@@ -273,6 +273,7 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
             f"✅ Channel status updated to **{self.status.value}**.", ephemeral=True
         )
 
+
 class PaginatedSelect(discord.ui.Select):
     def __init__(self, channel: discord.VoiceChannel, options, page=0, per_page=25):
         self.channel = channel
@@ -317,6 +318,7 @@ class PaginatedSelect(discord.ui.Select):
                 "❌ No valid users or roles were selected.", ephemeral=True
             )
 
+
 class PaginationView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, options, action: str):
         super().__init__()
@@ -332,11 +334,15 @@ class PaginationView(discord.ui.View):
 
         if self.page > 0:
             self.add_item(
-                discord.ui.Button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page")
+                discord.ui.Button(
+                    label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page"
+                )
             )
         if (self.page + 1) * 25 < len(self.options):
             self.add_item(
-                discord.ui.Button(label="Next", style=discord.ButtonStyle.primary, custom_id="next_page")
+                discord.ui.Button(
+                    label="Next", style=discord.ButtonStyle.primary, custom_id="next_page"
+                )
             )
 
     @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page")
@@ -350,6 +356,7 @@ class PaginationView(discord.ui.View):
         self.page += 1
         self.update_select()
         await interaction.response.edit_message(view=self)
+
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
@@ -513,7 +520,7 @@ class ChannelControlView(discord.ui.View):
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-    
+
         # Gather options for the permit action
         options = []
         for member in self.channel.members:
@@ -522,7 +529,7 @@ class ChannelControlView(discord.ui.View):
                 options.append(
                     discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
                 )
-    
+
         for role in self.channel.guild.roles:
             if role.is_default() or role.managed:
                 continue
@@ -531,21 +538,24 @@ class ChannelControlView(discord.ui.View):
                 options.append(
                     discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
                 )
-    
+
         if not options:
-            await interaction.response.send_message("❌ No users or roles available to permit.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ No users or roles available to permit.", ephemeral=True
+            )
             return
-    
+
         # Create and display the PaginationView
         view = PaginationView(self.channel, options, action="permit")
-        await interaction.response.send_message("Select users or roles to permit:", view=view, ephemeral=True)
-    
-    
+        await interaction.response.send_message(
+            "Select users or roles to permit:", view=view, ephemeral=True
+        )
+
     @discord.ui.button(label="➖ Forbid", row=1, style=discord.ButtonStyle.danger)
     async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-    
+
         # Gather options for the forbid action
         options = []
         for member in self.channel.members:
@@ -554,7 +564,7 @@ class ChannelControlView(discord.ui.View):
                 options.append(
                     discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
                 )
-    
+
         for role in self.channel.guild.roles:
             if role.is_default() or role.managed:
                 continue
@@ -563,14 +573,18 @@ class ChannelControlView(discord.ui.View):
                 options.append(
                     discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
                 )
-    
+
         if not options:
-            await interaction.response.send_message("❌ No users or roles available to forbid.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ No users or roles available to forbid.", ephemeral=True
+            )
             return
-    
+
         # Create and display the PaginationView
         view = PaginationView(self.channel, options, action="forbid")
-        await interaction.response.send_message("Select users or roles to forbid:", view=view, ephemeral=True)
+        await interaction.response.send_message(
+            "Select users or roles to forbid:", view=view, ephemeral=True
+        )
 
     @discord.ui.button(label="✏️ Rename", row=0, style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
