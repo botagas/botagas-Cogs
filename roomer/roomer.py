@@ -522,7 +522,7 @@ class ChannelControlView(discord.ui.View):
 
         # Gather options for the permit action
         options = []
-        for member in self.channel.members:
+        for member in self.channel.guild.members:
             perms = self.channel.overwrites_for(member)
             if perms.connect is not True:
                 options.append(
@@ -557,7 +557,7 @@ class ChannelControlView(discord.ui.View):
 
         # Gather options for the forbid action
         options = []
-        for member in self.channel.members:
+        for member in self.channel.guild.members:
             perms = self.channel.overwrites_for(member)
             if perms.connect is not False:
                 options.append(
