@@ -273,40 +273,27 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
             f"✅ Channel status updated to **{self.status.value}**.", ephemeral=True
         )
 
-
-class ForbidSelect(discord.ui.Select):
-    def __init__(self, channel: discord.VoiceChannel):
+class PaginatedSelect(discord.ui.Select):
+    def __init__(self, channel: discord.VoiceChannel, options, page=0, per_page=25):
         self.channel = channel
-        options = []
+        self.options = options
+        self.page = page
+        self.per_page = per_page
 
-        # Add members who do not have connect=False
-        for member in channel.members:
-            perms = channel.overwrites_for(member)
-            if perms.connect is not False:
-                options.append(
-                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
-                )
-
-        # Add roles (excluding @everyone, managed roles, and already forbidden)
-        for role in channel.guild.roles:
-            if role.is_default() or role.managed:
-                continue
-            perms = channel.overwrites_for(role)
-            if perms.connect is not False:
-                options.append(
-                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
-                )
+        start = page * per_page
+        end = start + per_page
+        paginated_options = options[start:end]
 
         super().__init__(
-            placeholder="Select a user or role to forbid",
+            placeholder=f"Page {page + 1}/{(len(options) - 1) // per_page + 1}",
+            options=paginated_options,
             min_values=1,
-            max_values=len(options),
-            options=options[:25],
+            max_values=len(paginated_options),
         )
 
     async def callback(self, interaction: discord.Interaction):
-        forbidden_mentions = []
-        for value in self.values:  # Iterate over all selected values
+        mentions = []
+        for value in self.values:
             kind, identifier = value.split(":")
             target = None
             if kind == "user":
@@ -315,74 +302,52 @@ class ForbidSelect(discord.ui.Select):
                 target = self.channel.guild.get_role(int(identifier))
 
             if target:
+                # Example: Forbid logic
                 await self.channel.set_permissions(target, connect=False)
-                forbidden_mentions.append(target.mention)  # Add mention to the list
+                mentions.append(target.mention)
 
-        if forbidden_mentions:
+        if mentions:
             await interaction.response.send_message(
-                f"❌ The following have been forbidden from joining this channel: {', '.join(forbidden_mentions)}",
-                ephemeral=True,
+                f"✅ Updated permissions for: {', '.join(mentions)}", ephemeral=True
             )
         else:
             await interaction.response.send_message(
                 "❌ No valid users or roles were selected.", ephemeral=True
             )
 
-
-class PermitSelect(discord.ui.Select):
-    def __init__(self, channel: discord.VoiceChannel):
+class PaginationView(discord.ui.View):
+    def __init__(self, channel: discord.VoiceChannel, options, action: str):
+        super().__init__()
         self.channel = channel
-        options = []
+        self.options = options
+        self.page = 0
+        self.action = action  # "permit" or "forbid"
+        self.update_select()
 
-        # Add members who do not have connect=True
-        for member in channel.members:
-            perms = channel.overwrites_for(member)
-            if perms.connect is not True:
-                options.append(
-                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
-                )
+    def update_select(self):
+        self.clear_items()
+        self.add_item(PaginatedSelect(self.channel, self.options, page=self.page))
 
-        # Add roles (excluding @everyone, managed roles, and already permitted)
-        for role in channel.guild.roles:
-            if role.is_default() or role.managed:
-                continue
-            perms = channel.overwrites_for(role)
-            if perms.connect is not True:
-                options.append(
-                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
-                )
-
-        super().__init__(
-            placeholder="Select a user or role to permit",
-            min_values=1,
-            max_values=len(options),
-            options=options[:25],  # Discord max
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        permitted_mentions = []
-        for value in self.values:  # Iterate over all selected values
-            kind, identifier = value.split(":")
-            target = None
-            if kind == "user":
-                target = self.channel.guild.get_member(int(identifier))
-            else:
-                target = self.channel.guild.get_role(int(identifier))
-
-            if target:
-                await self.channel.set_permissions(target, connect=True, view_channel=True)
-                permitted_mentions.append(target.mention)  # Add mention to the list
-
-        if permitted_mentions:
-            await interaction.response.send_message(
-                f"✅ The following have been permitted to join this channel: {', '.join(permitted_mentions)}",
-                ephemeral=True,
+        if self.page > 0:
+            self.add_item(
+                discord.ui.Button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page")
             )
-        else:
-            await interaction.response.send_message(
-                "❌ No valid users or roles were selected.", ephemeral=True
+        if (self.page + 1) * 25 < len(self.options):
+            self.add_item(
+                discord.ui.Button(label="Next", style=discord.ButtonStyle.primary, custom_id="next_page")
             )
 
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page")
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page -= 1
+        self.update_select()
+        await interaction.response.edit_message(view=self)
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, custom_id="next_page")
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page += 1
+        self.update_select()
+        await interaction.response.edit_message(view=self)
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
@@ -546,23 +511,64 @@ class ChannelControlView(discord.ui.View):
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-        select = PermitSelect(self.channel)
-        view = discord.ui.View()
-        view.add_item(select)
-        await interaction.response.send_message(
-            "Select a user or role to permit:", view=view, ephemeral=True
-        )
-
+    
+        # Gather options for the permit action
+        options = []
+        for member in self.channel.members:
+            perms = self.channel.overwrites_for(member)
+            if perms.connect is not True:
+                options.append(
+                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
+                )
+    
+        for role in self.channel.guild.roles:
+            if role.is_default() or role.managed:
+                continue
+            perms = self.channel.overwrites_for(role)
+            if perms.connect is not True:
+                options.append(
+                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
+                )
+    
+        if not options:
+            await interaction.response.send_message("❌ No users or roles available to permit.", ephemeral=True)
+            return
+    
+        # Create and display the PaginationView
+        view = PaginationView(self.channel, options, action="permit")
+        await interaction.response.send_message("Select users or roles to permit:", view=view, ephemeral=True)
+    
+    
     @discord.ui.button(label="➖ Forbid", row=1, style=discord.ButtonStyle.danger)
     async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-        select = ForbidSelect(self.channel)
-        view = discord.ui.View()
-        view.add_item(select)
-        await interaction.response.send_message(
-            "Select a user or role to forbid:", view=view, ephemeral=True
-        )
+    
+        # Gather options for the forbid action
+        options = []
+        for member in self.channel.members:
+            perms = self.channel.overwrites_for(member)
+            if perms.connect is not False:
+                options.append(
+                    discord.SelectOption(label=member.display_name, value=f"user:{member.id}")
+                )
+    
+        for role in self.channel.guild.roles:
+            if role.is_default() or role.managed:
+                continue
+            perms = self.channel.overwrites_for(role)
+            if perms.connect is not False:
+                options.append(
+                    discord.SelectOption(label=f"@{role.name}", value=f"role:{role.id}")
+                )
+    
+        if not options:
+            await interaction.response.send_message("❌ No users or roles available to forbid.", ephemeral=True)
+            return
+    
+        # Create and display the PaginationView
+        view = PaginationView(self.channel, options, action="forbid")
+        await interaction.response.send_message("Select users or roles to forbid:", view=view, ephemeral=True)
 
     @discord.ui.button(label="✏️ Rename", row=0, style=discord.ButtonStyle.primary)
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
