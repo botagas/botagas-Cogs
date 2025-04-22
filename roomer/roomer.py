@@ -277,7 +277,6 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
 class PaginatedSelect(discord.ui.Select):
     def __init__(self, channel: discord.VoiceChannel, options, page=0, per_page=25):
         self.channel = channel
-        self.options = options
         self.page = page
         self.per_page = per_page
 
