@@ -326,7 +326,9 @@ class PaginationView(discord.ui.View):
         self.update_select()
 
     def update_select(self):
-        self.clear_items()
+        for item in self.children[:]:
+            if isinstance(item, discord.ui.Select):
+                self.remove_item(item)
         self.add_item(
             PaginatedSelect(self.channel, self.options, page=self.page, per_page=self.per_page)
         )
