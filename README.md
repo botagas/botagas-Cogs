@@ -26,6 +26,8 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 [p]slash sync
 ```
 
+Required permissions for the category: `View Channels, Manage Channels, Manage Permissions, Send Messages, Embed Links, Connect, Speak, Set Voice Channel Status, Move Members`.
+
 ---
 
 ## 🧩 Available Cogs
