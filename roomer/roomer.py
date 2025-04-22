@@ -338,9 +338,7 @@ class PaginationView(discord.ui.View):
             self.update_select()
             await interaction.response.edit_message(view=self)
         else:
-            await interaction.response.send_message(
-                "❌ There is the first page.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ There is the first page.", ephemeral=True)
 
     @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -349,9 +347,8 @@ class PaginationView(discord.ui.View):
             self.update_select()
             await interaction.response.edit_message(view=self)
         else:
-            await interaction.response.send_message(
-                "❌ This is the last page.", ephemeral=True
-            )
+            await interaction.response.send_message("❌ This is the last page.", ephemeral=True)
+
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
