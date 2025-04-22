@@ -18,6 +18,15 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 [p]cog install botagas-Cogs <cogname>
 [p]load <cogname>
 ```
+> View, enable and sync slash commands
+
+```bash
+[p]slash list
+[p]slash enablecog <cog>
+[p]slash sync
+```
+
+Required permissions for the category: `View Channels, Manage Channels, Manage Permissions, Send Messages, Embed Links, Connect, Speak, Set Voice Channel Status, Move Members`.
 
 ---
 
