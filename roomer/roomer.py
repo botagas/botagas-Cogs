@@ -305,18 +305,27 @@ class ForbidSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        kind, identifier = self.values[0].split(":")
-        target = None
-        if kind == "user":
-            target = self.channel.guild.get_member(int(identifier))
-        else:
-            target = self.channel.guild.get_role(int(identifier))
+        forbidden_mentions = []
+        for value in self.values:  # Iterate over all selected values
+            kind, identifier = value.split(":")
+            target = None
+            if kind == "user":
+                target = self.channel.guild.get_member(int(identifier))
+            else:
+                target = self.channel.guild.get_role(int(identifier))
 
-        if target:
-            await self.channel.set_permissions(target, connect=False)
+            if target:
+                await self.channel.set_permissions(target, connect=False)
+                forbidden_mentions.append(target.mention)  # Add mention to the list
+
+        if forbidden_mentions:
             await interaction.response.send_message(
-                f"❌ {target.mention} has been forbidden from joining this channel.",
+                f"❌ The following have been forbidden from joining this channel: {', '.join(forbidden_mentions)}",
                 ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "❌ No valid users or roles were selected.", ephemeral=True
             )
 
 
@@ -351,17 +360,27 @@ class PermitSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        kind, identifier = self.values[0].split(":")
-        target = None
-        if kind == "user":
-            target = self.channel.guild.get_member(int(identifier))
-        else:
-            target = self.channel.guild.get_role(int(identifier))
+        permitted_mentions = []
+        for value in self.values:  # Iterate over all selected values
+            kind, identifier = value.split(":")
+            target = None
+            if kind == "user":
+                target = self.channel.guild.get_member(int(identifier))
+            else:
+                target = self.channel.guild.get_role(int(identifier))
 
-        if target:
-            await self.channel.set_permissions(target, connect=True, view_channel=True)
+            if target:
+                await self.channel.set_permissions(target, connect=True, view_channel=True)
+                permitted_mentions.append(target.mention)  # Add mention to the list
+
+        if permitted_mentions:
             await interaction.response.send_message(
-                f"✅ Permitted {target.mention} to join this channel.", ephemeral=True
+                f"✅ The following have been permitted to join this channel: {', '.join(permitted_mentions)}",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "❌ No valid users or roles were selected.", ephemeral=True
             )
 
 
