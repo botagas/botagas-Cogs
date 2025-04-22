@@ -327,7 +327,9 @@ class PaginationView(discord.ui.View):
 
     def update_select(self):
         self.clear_items()
-        self.add_item(PaginatedSelect(self.channel, self.options, page=self.page, per_page=self.per_page))
+        self.add_item(
+            PaginatedSelect(self.channel, self.options, page=self.page, per_page=self.per_page)
+        )
         self.previous_page.disabled = self.page == 0
         self.next_page.disabled = (self.page + 1) * self.per_page >= len(self.options)
 
