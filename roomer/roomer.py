@@ -333,7 +333,7 @@ class PaginationView(discord.ui.View):
             PaginatedSelect(self.channel, self.options, page=self.page, per_page=self.per_page)
         )
 
-    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, row=1)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page > 0:
             self.page -= 1
@@ -344,7 +344,7 @@ class PaginationView(discord.ui.View):
                 "❌ There is no previous page.", ephemeral=True
             )
 
-    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=1)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page * self.per_page + self.per_page < len(self.options):
             self.page += 1
