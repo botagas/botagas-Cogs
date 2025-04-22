@@ -18,6 +18,13 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 [p]cog install botagas-Cogs <cogname>
 [p]load <cogname>
 ```
+> View, enable and sync slash commands
+
+```bash
+[p]slash list
+[p]slash enablecog <cog>
+[p]slash sync
+```
 
 ---
 
