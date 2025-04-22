@@ -280,15 +280,13 @@ class PaginatedSelect(discord.ui.Select):
         self.page = page
         self.per_page = per_page
 
-        # Paginate the options
         start = page * per_page
         end = start + per_page
         paginated_options = options[start:end]
 
-        # Initialize the parent class with the paginated options
         super().__init__(
             placeholder=f"Page {page + 1}/{(len(options) - 1) // per_page + 1}",
-            options=paginated_options,  # Must be a list of discord.SelectOption
+            options=paginated_options,
             min_values=1,
             max_values=len(paginated_options),
         )
@@ -304,7 +302,6 @@ class PaginatedSelect(discord.ui.Select):
                 target = self.channel.guild.get_role(int(identifier))
 
             if target:
-                # Example: Forbid logic
                 await self.channel.set_permissions(target, connect=False)
                 mentions.append(target.mention)
 
@@ -324,7 +321,7 @@ class PaginationView(discord.ui.View):
         self.channel = channel
         self.options = options
         self.page = 0
-        self.action = action  # "permit" or "forbid"
+        self.action = action
         self.update_select()
 
     def update_select(self):
@@ -332,25 +329,18 @@ class PaginationView(discord.ui.View):
         self.add_item(PaginatedSelect(self.channel, self.options, page=self.page))
 
         if self.page > 0:
-            self.add_item(
-                discord.ui.Button(
-                    label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page"
-                )
-            )
-        if (self.page + 1) * 25 < len(self.options):
-            self.add_item(
-                discord.ui.Button(
-                    label="Next", style=discord.ButtonStyle.primary, custom_id="next_page"
-                )
-            )
+            self.add_item(self.previous_page_button)
 
-    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, custom_id="prev_page")
+        if (self.page + 1) * 25 < len(self.options):
+            self.add_item(self.next_page_button)
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.primary, row=0)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page -= 1
         self.update_select()
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, custom_id="next_page")
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.primary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page += 1
         self.update_select()
@@ -464,15 +454,13 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        await asyncio.sleep(0.1)  # Let Discord propagate permission changes
+        await asyncio.sleep(0.1)  # Account for lag
         updated = self.channel.overwrites_for(self.channel.guild.default_role)
         locked = updated.connect is False
 
-        # Update button labels and styles
         button.label = "🔓 Unlock" if locked else "🔒 Lock"
         button.style = discord.ButtonStyle.success if locked else discord.ButtonStyle.danger
 
-        # Update the message with the updated view
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
@@ -495,15 +483,13 @@ class ChannelControlView(discord.ui.View):
         overwrites[self.channel.guild.default_role] = new_overwrite
         await self.channel.edit(overwrites=overwrites)
 
-        await asyncio.sleep(0.1)  # Let Discord propagate permission changes
+        await asyncio.sleep(0.1)  # Account for lag
         updated = self.channel.overwrites_for(self.channel.guild.default_role)
         hidden = updated.view_channel is False
 
-        # Update button labels and styles
         button.label = "👁 Unhide" if hidden else "👁 Hide"
         button.style = discord.ButtonStyle.success if hidden else discord.ButtonStyle.danger
 
-        # Update the message with the updated view
         await interaction.response.edit_message(view=self)
 
         await interaction.followup.send(
@@ -520,7 +506,6 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        # Gather options for the permit action
         options = []
         for member in self.channel.guild.members:
             perms = self.channel.overwrites_for(member)
@@ -544,7 +529,6 @@ class ChannelControlView(discord.ui.View):
             )
             return
 
-        # Create and display the PaginationView
         view = PaginationView(self.channel, options, action="permit")
         await interaction.response.send_message(
             "Select users or roles to permit:", view=view, ephemeral=True
@@ -555,7 +539,6 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        # Gather options for the forbid action
         options = []
         for member in self.channel.guild.members:
             perms = self.channel.overwrites_for(member)
@@ -579,7 +562,6 @@ class ChannelControlView(discord.ui.View):
             )
             return
 
-        # Create and display the PaginationView
         view = PaginationView(self.channel, options, action="forbid")
         await interaction.response.send_message(
             "Select users or roles to forbid:", view=view, ephemeral=True
