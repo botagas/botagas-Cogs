@@ -316,12 +316,13 @@ class PaginatedSelect(discord.ui.Select):
 
 
 class PaginationView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel, options, action: str):
+    def __init__(self, channel: discord.VoiceChannel, options, action: str, per_page: int = 25):
         super().__init__()
         self.channel = channel
         self.options = options
         self.page = 0
         self.action = action
+        self.per_page = per_page
         self.update_select()
 
     def update_select(self):
