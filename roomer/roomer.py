@@ -300,7 +300,7 @@ class ForbidSelect(discord.ui.Select):
         super().__init__(
             placeholder="Select a user or role to forbid",
             min_values=1,
-            max_values=1,
+            max_values=len(options),
             options=options[:25],
         )
 
@@ -346,7 +346,7 @@ class PermitSelect(discord.ui.Select):
         super().__init__(
             placeholder="Select a user or role to permit",
             min_values=1,
-            max_values=1,
+            max_values=len(options),
             options=options[:25],  # Discord max
         )
 
