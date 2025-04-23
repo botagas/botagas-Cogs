@@ -15,3 +15,5 @@ ci:
 config:
   - "**/*.yml"
   - "**/*.yaml"
+  - ".github/**/*.yml"
+  - ".github/**/*.yaml"
