@@ -502,7 +502,9 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        view = MentionableView(self.channel, action="permit", channel_owners=self.cog.channel_owners)
+        view = MentionableView(
+            self.channel, action="permit", channel_owners=self.cog.channel_owners
+        )
         await interaction.response.send_message(
             "Select a user or role to permit:", view=view, ephemeral=True
         )
@@ -512,7 +514,9 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        view = MentionableView(self.channel, action="forbid", channel_owners=self.cog.channel_owners)
+        view = MentionableView(
+            self.channel, action="forbid", channel_owners=self.cog.channel_owners
+        )
         await interaction.response.send_message(
             "Select a user or role to forbid:", view=view, ephemeral=True
         )
