@@ -1,7 +1,7 @@
 # Label PRs that modify documentation files
 documentation:
   - "docs/**"
-  - "*.md"
+  - "**/*.md"
 
 # Label PRs that modify test files
 tests:
@@ -18,5 +18,5 @@ ci:
 
 # Label PRs that modify configuration files
 config:
-  - "*.yml"
-  - "*.yaml"
+  - "**/*.yml"
+  - "**/*.yaml"
