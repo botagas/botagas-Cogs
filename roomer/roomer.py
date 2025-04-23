@@ -301,7 +301,8 @@ class MentionableSelect(discord.ui.MentionableSelect):
         if mentions:
             action_text = "permitted" if self.action == "permit" else "forbidden"
             await interaction.response.send_message(
-                f"✅ Updated permissions for: {', '.join(mentions)} ({action_text}).", ephemeral=True
+                f"✅ Updated permissions for: {', '.join(mentions)} ({action_text}).",
+                ephemeral=True,
             )
         else:
             await interaction.response.send_message(
