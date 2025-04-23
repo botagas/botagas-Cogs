@@ -219,10 +219,13 @@ class Roomer(red_commands.Cog):
         if not settings["auto_enabled"] or after.channel.id not in settings["auto_channels"]:
             return
 
+        overwrites = after.channel.overwrites
+        overwrites[member] = discord.PermissionOverwrite(connect=True, view_channel=True)
+
         category = after.channel.category
         new_channel = await category.create_voice_channel(
             settings["name"],
-            overwrites=after.channel.overwrites,
+            overwrites=overwrites,
             user_limit=min(settings["user_limit"] or 0, 99),
             reason="Auto voice channel creation",
         )
@@ -286,7 +289,13 @@ class MentionableSelect(discord.ui.MentionableSelect):
             target = None
 
             if isinstance(selected, discord.Member):
-                target = selected
+                if self.channel_owners.get(self.channel.id) == selected.id:
+                    await interaction.response.send_message(
+                        "❌ You cannot modify your own permissions.", ephemeral=True
+                    )
+                    return
+                else:
+                    target = selected
             elif isinstance(selected, discord.Role):
                 target = selected
 
@@ -421,6 +430,7 @@ class ChannelControlView(discord.ui.View):
             view_channel=current.view_channel, connect=None if currently_locked else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
+        overwrites[interaction.user] = discord.PermissionOverwrite(view_channel=True, connect=True)
         await self.channel.edit(overwrites=overwrites)
 
         await asyncio.sleep(0.1)  # Account for lag
@@ -450,6 +460,7 @@ class ChannelControlView(discord.ui.View):
             connect=current.connect, view_channel=None if currently_hidden else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
+        overwrites[interaction.user] = discord.PermissionOverwrite(view_channel=True, connect=True)
         await self.channel.edit(overwrites=overwrites)
 
         await asyncio.sleep(0.1)  # Account for lag
@@ -518,6 +529,9 @@ class ChannelControlView(discord.ui.View):
 
         category = self.channel.category
         new_overwrites = category.overwrites if category else {}
+        new_overwrites[interaction.user] = discord.PermissionOverwrite(
+            view_channel=True, connect=True
+        )
 
         await self.channel.edit(
             name="Voice Room", user_limit=0, status=None, overwrites=new_overwrites
@@ -541,9 +555,21 @@ class ChannelControlView(discord.ui.View):
 
         category = self.channel.category
         new_overwrites = category.overwrites if category else {}
+        new_overwrites[interaction.user] = discord.PermissionOverwrite(
+            view_channel=True, connect=True
+        )
 
         try:
             await self.channel.edit(overwrites=new_overwrites)
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    if item.custom_id == "roomer:lock":
+                        item.label = "🔒 Lock"
+                        item.style = discord.ButtonStyle.danger
+                    elif item.custom_id == "roomer:hide":
+                        item.label = "👁 Hide"
+                        item.style = discord.ButtonStyle.danger
+            await interaction.response.edit_message(view=self)
             await interaction.response.send_message(
                 "✅ All permission overwrites have been cleared.", ephemeral=True
             )
