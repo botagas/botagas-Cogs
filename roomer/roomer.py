@@ -305,10 +305,12 @@ class MentionableSelect(discord.ui.MentionableSelect):
         else:
             await interaction.response.send_message("❌ Invalid selection.", ephemeral=True)
 
+
 class MentionableView(discord.ui.View):
     def __init__(self, channel: discord.VoiceChannel, action: str):
         super().__init__()
         self.add_item(MentionableSelect(channel, action))
+
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
     name = discord.ui.TextInput(
@@ -468,18 +470,17 @@ class ChannelControlView(discord.ui.View):
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-    
+
         view = MentionableView(self.channel, action="permit")
         await interaction.response.send_message(
             "Select a user or role to permit:", view=view, ephemeral=True
         )
-    
-    
+
     @discord.ui.button(label="➖ Forbid", row=1, style=discord.ButtonStyle.danger)
     async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
-    
+
         view = MentionableView(self.channel, action="forbid")
         await interaction.response.send_message(
             "Select a user or role to forbid:", view=view, ephemeral=True
