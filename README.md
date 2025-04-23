@@ -42,7 +42,6 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
 - `Send Messages` - To send messages in voice channels
 - `Embed Links` - To send embeds in voice channels
 - `Connect` - To connect to channels and alter them
-- `Speak` - To speak in channels if needed (optional)
 - `Set Voice Channel Status` - To set channel activity status
 - `Move Members` - To move members to their respective channels
 
