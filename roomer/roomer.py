@@ -590,6 +590,10 @@ class ChannelControlView(discord.ui.View):
 
             current_owner = self.channel.guild.get_member(current_owner_id)
             if not current_owner or current_owner not in self.channel.members:
+                await self.channel.set_permissions(current_owner, overwrite=None)
+                await self.channel.set_permissions(
+                    interaction.user, view_channel=True, connect=True
+                )
                 self.owner_id = interaction.user.id
                 cog.channel_owners[self.channel.id] = interaction.user.id
                 await interaction.response.send_message(
