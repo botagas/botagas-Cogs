@@ -10,7 +10,7 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 
 ## 🔧 Installation
 
-> Replace `[p]` with your bot’s command prefix.
+#### Replace `[p]` with your bot’s command prefix.
 
 ```bash
 [p]load downloader
@@ -18,13 +18,15 @@ Originally forked from [Seina-Cogs](https://github.com/japandotorg/Seina-Cogs) a
 [p]cog install botagas-Cogs <cogname>
 [p]load <cogname>
 ```
-> View, enable and sync slash commands
+#### View, enable and sync slash commands
 
 ```bash
 [p]slash list
 [p]slash enablecog <cog>
 [p]slash sync
 ```
+> [!NOTE]
+> You may need to restart your Discord client to see the newly added slash commands.
 
 ---
 
