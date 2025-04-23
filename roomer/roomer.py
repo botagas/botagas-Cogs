@@ -30,9 +30,21 @@ class Roomer(red_commands.Cog):
             presets={},
         )
         self.channel_owners = {}
+        self.reminder_messages = {}
 
     async def red_delete_data_for_user(self, **kwargs):
         return
+
+    async def send_claim_reminder(self, channel: discord.VoiceChannel):
+        """Send a reminder to users in the channel to claim ownership."""
+        if len(channel.members) > 0:
+            try:
+                message = await channel.send(
+                    "⚠️ The owner has left the room. You can claim ownership by clicking the '🎙 Claim Room' button."
+                )
+                self.reminder_messages[channel.id] = message
+            except discord.Forbidden:
+                self.bot.logger.warning(f"Failed to send reminder in {channel.name}.")
 
     @roomer_group.command(name="enable", description="Enable automatic voice channel creation.")
     @app_commands.checks.has_permissions(administrator=True)
@@ -219,15 +231,17 @@ class Roomer(red_commands.Cog):
         if not settings["auto_enabled"] or after.channel.id not in settings["auto_channels"]:
             return
 
+        overwrites = after.channel.overwrites
+
         category = after.channel.category
         new_channel = await category.create_voice_channel(
             settings["name"],
-            overwrites=after.channel.overwrites,
+            overwrites=overwrites,
             user_limit=min(settings["user_limit"] or 0, 99),
             reason="Auto voice channel creation",
         )
         await member.move_to(new_channel, reason="Moved to new voice room")
-
+        await new_channel.set_permissions(member, view_channel=True, connect=True)
         self.channel_owners[new_channel.id] = member.id
 
         try:
@@ -254,6 +268,10 @@ class Roomer(red_commands.Cog):
                 pass
             finally:
                 self.channel_owners.pop(channel.id, None)
+                self.reminder_messages.pop(channel.id, None)
+        elif channel and len(channel.members) > 0:
+            # Send a reminder to claim the room
+            await self.send_claim_reminder(channel)
 
 
 class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
@@ -275,18 +293,26 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
 
 
 class MentionableSelect(discord.ui.MentionableSelect):
-    def __init__(self, channel: discord.VoiceChannel, action: str):
+    def __init__(self, channel: discord.VoiceChannel, action: str, channel_owners: dict):
         self.channel = channel
         self.action = action
+        self.channel_owners = channel_owners
         super().__init__(placeholder="Select a user or role...", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction):
         mentions = []
+        current_owner = self.channel_owners.get(self.channel.id)
         for selected in self.values:
             target = None
 
             if isinstance(selected, discord.Member):
-                target = selected
+                if current_owner == selected.id:
+                    await interaction.response.send_message(
+                        "❌ You cannot modify your own permissions.", ephemeral=True
+                    )
+                    return
+                else:
+                    target = selected
             elif isinstance(selected, discord.Role):
                 target = selected
 
@@ -311,9 +337,9 @@ class MentionableSelect(discord.ui.MentionableSelect):
 
 
 class MentionableView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel, action: str):
+    def __init__(self, channel: discord.VoiceChannel, action: str, channel_owners: dict):
         super().__init__()
-        self.add_item(MentionableSelect(channel, action))
+        self.add_item(MentionableSelect(channel, action, channel_owners))
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
@@ -421,6 +447,7 @@ class ChannelControlView(discord.ui.View):
             view_channel=current.view_channel, connect=None if currently_locked else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
+        overwrites[interaction.user] = discord.PermissionOverwrite(view_channel=True, connect=True)
         await self.channel.edit(overwrites=overwrites)
 
         await asyncio.sleep(0.1)  # Account for lag
@@ -450,6 +477,7 @@ class ChannelControlView(discord.ui.View):
             connect=current.connect, view_channel=None if currently_hidden else False
         )
         overwrites[self.channel.guild.default_role] = new_overwrite
+        overwrites[interaction.user] = discord.PermissionOverwrite(view_channel=True, connect=True)
         await self.channel.edit(overwrites=overwrites)
 
         await asyncio.sleep(0.1)  # Account for lag
@@ -475,7 +503,9 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        view = MentionableView(self.channel, action="permit")
+        view = MentionableView(
+            self.channel, action="permit", channel_owners=self.cog.channel_owners
+        )
         await interaction.response.send_message(
             "Select a user or role to permit:", view=view, ephemeral=True
         )
@@ -485,7 +515,9 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
-        view = MentionableView(self.channel, action="forbid")
+        view = MentionableView(
+            self.channel, action="forbid", channel_owners=self.cog.channel_owners
+        )
         await interaction.response.send_message(
             "Select a user or role to forbid:", view=view, ephemeral=True
         )
@@ -518,6 +550,9 @@ class ChannelControlView(discord.ui.View):
 
         category = self.channel.category
         new_overwrites = category.overwrites if category else {}
+        new_overwrites[interaction.user] = discord.PermissionOverwrite(
+            view_channel=True, connect=True
+        )
 
         await self.channel.edit(
             name="Voice Room", user_limit=0, status=None, overwrites=new_overwrites
@@ -541,9 +576,21 @@ class ChannelControlView(discord.ui.View):
 
         category = self.channel.category
         new_overwrites = category.overwrites if category else {}
+        new_overwrites[interaction.user] = discord.PermissionOverwrite(
+            view_channel=True, connect=True
+        )
 
         try:
             await self.channel.edit(overwrites=new_overwrites)
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    if item.custom_id == "roomer:lock":
+                        item.label = "🔒 Lock"
+                        item.style = discord.ButtonStyle.danger
+                    elif item.custom_id == "roomer:hide":
+                        item.label = "👁 Hide"
+                        item.style = discord.ButtonStyle.danger
+            await interaction.response.edit_message(view=self)
             await interaction.response.send_message(
                 "✅ All permission overwrites have been cleared.", ephemeral=True
             )
@@ -565,8 +612,18 @@ class ChannelControlView(discord.ui.View):
 
             current_owner = self.channel.guild.get_member(current_owner_id)
             if not current_owner or current_owner not in self.channel.members:
+                await self.channel.set_permissions(current_owner, overwrite=None)
+                await self.channel.set_permissions(
+                    interaction.user, view_channel=True, connect=True
+                )
                 self.owner_id = interaction.user.id
                 cog.channel_owners[self.channel.id] = interaction.user.id
+                reminder_message = cog.reminder_messages.pop(self.channel.id, None)
+                if reminder_message:
+                    try:
+                        await reminder_message.delete()
+                    except discord.NotFound:
+                        pass
                 await interaction.response.send_message(
                     "✅ You have claimed ownership of this room.", ephemeral=True
                 )
