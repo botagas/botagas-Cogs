@@ -321,9 +321,9 @@ class MentionableSelect(discord.ui.MentionableSelect):
 
 
 class MentionableView(discord.ui.View):
-    def __init__(self, channel: discord.VoiceChannel, action: str):
+    def __init__(self, channel: discord.VoiceChannel, action: str, channel_owners: dict):
         super().__init__()
-        self.add_item(MentionableSelect(channel, action))
+        self.add_item(MentionableSelect(channel, action, channel_owners))
 
 
 class RenameModal(discord.ui.Modal, title="Rename Voice Channel"):
