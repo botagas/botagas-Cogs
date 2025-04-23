@@ -220,7 +220,6 @@ class Roomer(red_commands.Cog):
             return
 
         overwrites = after.channel.overwrites
-        overwrites[member] = discord.PermissionOverwrite(connect=True, view_channel=True)
 
         category = after.channel.category
         new_channel = await category.create_voice_channel(
@@ -230,7 +229,9 @@ class Roomer(red_commands.Cog):
             reason="Auto voice channel creation",
         )
         await member.move_to(new_channel, reason="Moved to new voice room")
-
+        await new_channel.set_permissions(
+            member, view_channel=True, connect=True
+        )
         self.channel_owners[new_channel.id] = member.id
 
         try:
