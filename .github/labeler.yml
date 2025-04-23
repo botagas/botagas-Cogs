@@ -1,22 +1,19 @@
-# Label PRs that modify documentation files
 documentation:
   - "docs/**"
   - "**/*.md"
 
-# Label PRs that modify test files
 tests:
   - "tests/**"
 
-# Label PRs that modify core functionality
 core:
   - "roomer/**"
   - "captcha/**"
 
-# Label PRs that modify GitHub Actions workflows
 ci:
   - ".github/workflows/**"
 
-# Label PRs that modify configuration files
 config:
   - "**/*.yml"
   - "**/*.yaml"
+  - ".github/**/*.yml"
+  - ".github/**/*.yaml"
