@@ -277,11 +277,11 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
 class MentionableSelect(discord.ui.MentionableSelect):
     def __init__(self, channel: discord.VoiceChannel, action: str):
         self.channel = channel
-        self.action = action  # "permit" or "forbid"
-        super().__init__(placeholder="Select a user or role...", min_values=1, max_values=1)
+        self.action = action
+        super().__init__(placeholder="Select a user or role...", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction):
-        selected = self.values[0]  # The selected mentionable (user or role)
+        selected = self.values[0]
         target = None
 
         if isinstance(selected, discord.Member):
@@ -291,13 +291,11 @@ class MentionableSelect(discord.ui.MentionableSelect):
 
         if target:
             if self.action == "permit":
-                # Permit logic: Set connect=True and view_channel=True
                 await self.channel.set_permissions(target, connect=True, view_channel=True)
                 await interaction.response.send_message(
                     f"✅ {target.mention} has been permitted.", ephemeral=True
                 )
             elif self.action == "forbid":
-                # Forbid logic: Set connect=False
                 await self.channel.set_permissions(target, connect=False)
                 await interaction.response.send_message(
                     f"✅ {target.mention} has been forbidden.", ephemeral=True
