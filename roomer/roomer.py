@@ -534,6 +534,7 @@ class ChannelControlView(discord.ui.View):
         await interaction.response.edit_message(view=self)
         await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
 
+
 @discord.ui.button(label="🧹 Clear Permissions", row=3, style=discord.ButtonStyle.secondary)
 async def clear_permissions(self, interaction: discord.Interaction, button: discord.ui.Button):
     if not await self._check_permissions(interaction):
