@@ -64,6 +64,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
   - 📝 **Set Status** — Set a voice channel status
   - 👥 **Set Limit** — Max user cap (up to 99)
   - 🔄 **Reset Channel** — Revert to default settings from the JTC category
+  - 🧹 **Clear Permissions** - Revert permission overwrites while keeping channel customisation
   - 🎙 **Claim Room** — Claim ownership if the owner is no longer present
   - 🎮 **Channel Preset** — Apply a predefined channel preset (sets `title`, `status`, `limit`)
 
