@@ -277,18 +277,20 @@ class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
 
 
 class MentionableSelect(discord.ui.MentionableSelect):
-    def __init__(self, channel: discord.VoiceChannel, action: str):
+    def __init__(self, channel: discord.VoiceChannel, action: str, channel_owners: dict):
         self.channel = channel
         self.action = action
+        self.channel_owners = channel_owners
         super().__init__(placeholder="Select a user or role...", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction):
         mentions = []
+        current_owner = self.channel_owners.get(self.channel.id)
         for selected in self.values:
             target = None
 
             if isinstance(selected, discord.Member):
-                if self.channel_owners.get(self.channel.id) == selected.id:
+                if current_owner == selected.id:
                     await interaction.response.send_message(
                         "❌ You cannot modify your own permissions.", ephemeral=True
                     )
