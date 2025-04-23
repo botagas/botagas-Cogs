@@ -42,7 +42,6 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
 - `Send Messages` - To send messages in voice channels
 - `Embed Links` - To send embeds in voice channels
 - `Connect` - To connect to channels and alter them
-- `Speak` - To speak in channels if needed (optional)
 - `Set Voice Channel Status` - To set channel activity status
 - `Move Members` - To move members to their respective channels
 
@@ -64,6 +63,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
   - 📝 **Set Status** — Set a voice channel status
   - 👥 **Set Limit** — Max user cap (up to 99)
   - 🔄 **Reset Channel** — Revert to default settings from the JTC category
+  - 🧹 **Clear Permissions** - Revert permission overwrites while keeping channel customisation
   - 🎙 **Claim Room** — Claim ownership if the owner is no longer present
   - 🎮 **Channel Preset** — Apply a predefined channel preset (sets `title`, `status`, `limit`)
 
