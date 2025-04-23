@@ -30,6 +30,7 @@ class Roomer(red_commands.Cog):
             presets={},
         )
         self.channel_owners = {}
+        self.reminder_messages = {}
 
     async def red_delete_data_for_user(self, **kwargs):
         return
