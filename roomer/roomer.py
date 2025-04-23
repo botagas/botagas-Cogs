@@ -34,6 +34,17 @@ class Roomer(red_commands.Cog):
     async def red_delete_data_for_user(self, **kwargs):
         return
 
+    async def send_claim_reminder(self, channel: discord.VoiceChannel):
+        """Send a reminder to users in the channel to claim ownership."""
+        if len(channel.members) > 0:
+            try:
+                message = await channel.send(
+                    "⚠️ The owner has left the room. You can claim ownership by clicking the '🎙 Claim Room' button."
+                )
+                self.reminder_messages[channel.id] = message
+            except discord.Forbidden:
+                self.bot.logger.warning(f"Failed to send reminder in {channel.name}.")
+
     @roomer_group.command(name="enable", description="Enable automatic voice channel creation.")
     @app_commands.checks.has_permissions(administrator=True)
     async def enable(self, interaction: discord.Interaction):
@@ -256,6 +267,10 @@ class Roomer(red_commands.Cog):
                 pass
             finally:
                 self.channel_owners.pop(channel.id, None)
+                self.reminder_messages.pop(channel.id, None)
+        elif channel and len(channel.members) > 0:
+            # Send a reminder to claim the room
+            await self.send_claim_reminder(channel)
 
 
 class SetStatusModal(discord.ui.Modal, title="Set Channel Status"):
@@ -598,6 +613,12 @@ class ChannelControlView(discord.ui.View):
                 )
                 self.owner_id = interaction.user.id
                 cog.channel_owners[self.channel.id] = interaction.user.id
+                reminder_message = cog.reminder_messages.pop(self.channel.id, None)
+                if reminder_message:
+                    try:
+                        await reminder_message.delete()
+                    except discord.NotFound:
+                        pass
                 await interaction.response.send_message(
                     "✅ You have claimed ownership of this room.", ephemeral=True
                 )
