@@ -281,27 +281,32 @@ class MentionableSelect(discord.ui.MentionableSelect):
         super().__init__(placeholder="Select a user or role...", min_values=1, max_values=25)
 
     async def callback(self, interaction: discord.Interaction):
-        selected = self.values[0]
-        target = None
+        mentions = []
+        for selected in self.values:
+            target = None
 
-        if isinstance(selected, discord.Member):
-            target = selected
-        elif isinstance(selected, discord.Role):
-            target = selected
+            if isinstance(selected, discord.Member):
+                target = selected
+            elif isinstance(selected, discord.Role):
+                target = selected
 
-        if target:
-            if self.action == "permit":
-                await self.channel.set_permissions(target, connect=True, view_channel=True)
-                await interaction.response.send_message(
-                    f"✅ {target.mention} has been permitted.", ephemeral=True
-                )
-            elif self.action == "forbid":
-                await self.channel.set_permissions(target, connect=False)
-                await interaction.response.send_message(
-                    f"✅ {target.mention} has been forbidden.", ephemeral=True
-                )
+            if target:
+                if self.action == "permit":
+                    await self.channel.set_permissions(target, connect=True, view_channel=True)
+                    mentions.append(target.mention)
+                elif self.action == "forbid":
+                    await self.channel.set_permissions(target, connect=False)
+                    mentions.append(target.mention)
+
+        if mentions:
+            action_text = "permitted" if self.action == "permit" else "forbidden"
+            await interaction.response.send_message(
+                f"✅ Updated permissions for: {', '.join(mentions)} ({action_text}).", ephemeral=True
+            )
         else:
-            await interaction.response.send_message("❌ Invalid selection.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ No valid users or roles were selected.", ephemeral=True
+            )
 
 
 class MentionableView(discord.ui.View):
