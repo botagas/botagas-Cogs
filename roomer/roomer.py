@@ -539,8 +539,11 @@ class ChannelControlView(discord.ui.View):
         if not await self._check_permissions(interaction):
             return
 
+        category = self.channel.category
+        new_overwrites = category.overwrites if category else {}
+
         try:
-            await self.channel.edit(overwrites={})
+            await self.channel.edit(overwrites=new_overwrites)
             await interaction.response.send_message(
                 "✅ All permission overwrites have been cleared.", ephemeral=True
             )
