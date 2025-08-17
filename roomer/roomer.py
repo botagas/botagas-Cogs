@@ -387,7 +387,7 @@ class ApplyPresetSelect(discord.ui.Select):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=data.get("status") or "No status")
+            discord.SelectOption(label=name, description=data.get("title") or "No title")
             for name, data in presets.items()
         ]
         super().__init__(
