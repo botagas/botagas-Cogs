@@ -641,6 +641,8 @@ class ChannelControlView(discord.ui.View):
         custom_id="roomer:preset",
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         try:
             config = interaction.client.get_cog("Roomer").config
             presets = await config.guild(interaction.guild).presets()
