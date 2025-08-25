@@ -387,7 +387,7 @@ class ApplyPresetSelect(discord.ui.Select):
         self.channel = channel
         self.presets = presets
         options = [
-            discord.SelectOption(label=name, description=data.get("status") or "No status")
+            discord.SelectOption(label=name, description=data.get("title") or "No title")
             for name, data in presets.items()
         ]
         super().__init__(
@@ -641,6 +641,8 @@ class ChannelControlView(discord.ui.View):
         custom_id="roomer:preset",
     )
     async def apply_preset(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not await self._check_permissions(interaction):
+            return
         try:
             config = interaction.client.get_cog("Roomer").config
             presets = await config.guild(interaction.guild).presets()
