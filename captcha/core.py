@@ -96,6 +96,10 @@ class Captcha(
         self.task: asyncio.Task = asyncio.create_task(self._initialize())
         self._dm_messages: Dict[int, discord.Message] = {}
 
+        # Register persistent view
+        from .views import CaptchaVerifyButton
+        self.bot.add_view(CaptchaVerifyButton(self))
+
     def register_active_challenge(
         self, user_id: int, code: str, guild_id: int, timeout: int
     ) -> None:

@@ -114,7 +114,7 @@ The new Captcha system uses **slash commands**, **modals**, and **UI buttons**. 
 - Supports **custom before/after/embed messages**
 
 #### Known Limitation / WIP:
-- After a restart or reload, you must re-run `/captcha deploy` to restore the verification button for proper operation
+- Currently, none.
 
 ---
 
