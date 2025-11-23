@@ -98,6 +98,7 @@ class Captcha(
 
         # Register persistent view
         from .views import CaptchaVerifyButton
+
         self.bot.add_view(CaptchaVerifyButton(self))
 
     def register_active_challenge(
