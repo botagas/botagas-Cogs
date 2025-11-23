@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import discord
 
@@ -51,8 +51,8 @@ class CaptchaSubmitView(discord.ui.View):
 
 
 class CaptchaVerifyButton(discord.ui.View):
-    def __init__(self, cog: Any, timeout: Optional[float] = None):
-        super().__init__(timeout=timeout)
+    def __init__(self, cog: Any):
+        super().__init__(timeout=None)
         self.cog = cog
 
     @discord.ui.button(
