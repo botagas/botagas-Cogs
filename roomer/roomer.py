@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Optional
 
 import discord
@@ -9,6 +10,7 @@ from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
 _ = Translator("Roomer", __file__)
+log = logging.getLogger("red.roomer")
 
 
 @cog_i18n(_)
@@ -235,10 +237,10 @@ class Roomer(red_commands.Cog):
         overwrites = after.channel.overwrites.copy()
         
         # Log the overwrites to debug the permission issue
-        self.bot.logger.info(f"Join channel overwrites: {overwrites}")
-        self.bot.logger.info(f"Bot in overwrites: {guild.me in overwrites}")
+        log.info(f"Join channel overwrites: {overwrites}")
+        log.info(f"Bot in overwrites: {guild.me in overwrites}")
         if guild.me in overwrites:
-            self.bot.logger.info(f"Bot permissions: {overwrites[guild.me]}")
+            log.info(f"Bot permissions: {overwrites[guild.me]}")
         
         new_channel = await category.create_voice_channel(
             settings["name"],
