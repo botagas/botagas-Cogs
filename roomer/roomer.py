@@ -235,7 +235,7 @@ class Roomer(red_commands.Cog):
 
         category = after.channel.category
         overwrites = after.channel.overwrites.copy()
-        
+
         # Log the overwrites to debug the permission issue
         log.info(f"Join channel overwrites: {overwrites}")
         log.info(f"Bot in overwrites: {guild.me in overwrites}")
