@@ -233,13 +233,13 @@ class Roomer(red_commands.Cog):
 
         category = after.channel.category
         overwrites = after.channel.overwrites.copy()
-        
+
         # Log the overwrites to debug the permission issue
         self.bot.logger.info(f"Join channel overwrites: {overwrites}")
         self.bot.logger.info(f"Bot in overwrites: {guild.me in overwrites}")
         if guild.me in overwrites:
             self.bot.logger.info(f"Bot permissions: {overwrites[guild.me]}")
-        
+
         new_channel = await category.create_voice_channel(
             settings["name"],
             overwrites=overwrites,
