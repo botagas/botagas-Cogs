@@ -241,7 +241,7 @@ class Roomer(red_commands.Cog):
         log.info(f"Bot in overwrites: {guild.me in overwrites}")
         if guild.me in overwrites:
             log.info(f"Bot permissions: {overwrites[guild.me]}")
-        
+
         new_channel = await category.create_voice_channel(
             settings["name"],
             overwrites=overwrites,
