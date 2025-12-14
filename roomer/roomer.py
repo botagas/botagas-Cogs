@@ -232,25 +232,22 @@ class Roomer(red_commands.Cog):
             return
 
         category = after.channel.category
-        
+
         new_channel = await category.create_voice_channel(
             settings["name"],
             user_limit=min(settings["user_limit"] or 0, 99),
             reason="Auto voice channel creation",
         )
-        
+
         try:
             overwrites_to_apply = {}
             for target, overwrite in after.channel.overwrites.items():
                 overwrites_to_apply[target] = overwrite
-            
+
             overwrites_to_apply[guild.me] = discord.PermissionOverwrite(
-                manage_channels=True,
-                manage_permissions=True,
-                connect=True,
-                view_channel=True
+                manage_channels=True, manage_permissions=True, connect=True, view_channel=True
             )
-            
+
             await new_channel.edit(overwrites=overwrites_to_apply)
         except Exception:
             pass
