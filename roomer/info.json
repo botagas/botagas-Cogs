@@ -2,9 +2,9 @@
   "author": [
     "Dav"
   ],
-  "description": "Tools for voicechannels. \n - Automated voicechannel creation \n - Private voicechannels \n - Private textchannels",
+  "description": "Tools for voicechannels. \n - Automated voicechannel creation \n - Private voicechannels \n - Private textchannels \n - Slash commands",
   "hidden": false,
-  "install_msg": "Thanks for using roomer. Check out all settings in `[p]roomer`.",
+  "install_msg": "This version of `roomer` uses slash commands. Follow the [Readme](https://github.com/botagas/botagas-Cogs?tab=readme-ov-file#-installation) on GitHub to setup.",
   "short": "Tools for voicechannels NEW: Private Text channels",
   "tags": [
     "members",
