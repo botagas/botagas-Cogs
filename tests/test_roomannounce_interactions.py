@@ -191,7 +191,7 @@ def test_rsvp_view_is_persistent_and_participant_lists_paginate():
         "roomannounce:rsvp:participants",
     }
     link = next(item for item in view.children if item.custom_id is None)
-    assert link.label == "Join Voice"
+    assert link.label == "Connect"
     assert link.url == "https://discord.com/channels/456/123"
 
     members = [FakeMember(index, f"Player {index} " + "x" * 80) for index in range(1, 101)]

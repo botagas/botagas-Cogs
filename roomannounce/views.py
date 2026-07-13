@@ -135,7 +135,7 @@ class RSVPView(discord.ui.View):
         self.channel_id = channel_id
         self.add_item(
             discord.ui.Button(
-                label="Join Voice",
+                label="Connect",
                 style=discord.ButtonStyle.link,
                 url=f"https://discord.com/channels/{guild_id}/{channel_id}",
             )

@@ -165,7 +165,7 @@ SteamGridDB artwork requires its own API key:
 - Active hours suppress automatic role pings without stopping informational announcement updates; forced hours also block manual pings.
 - Active-hour weekdays are comma-separated names such as `Mon,Wed,Fri`; overnight windows use the weekday on which the window starts.
 - Optional RSVP buttons track Join, Maybe, and Not Coming responses and notify room owners at configured participation milestones.
-- RSVP summaries start on their own embed row, and a separate **Join Voice** link opens the advertised room in Discord.
+- RSVP summaries start on their own embed row, and a separate **Connect** link opens the advertised room in Discord.
 - Unlimited voice channels show only their current room size; limited channels show current and maximum size.
 
 ---
