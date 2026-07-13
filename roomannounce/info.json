@@ -13,5 +13,5 @@
   },
   "requirements": ["aiohttp"],
   "type": "COG",
-  "end_user_data_statement": "This cog temporarily stores Roomer channel IDs, owner IDs, game announcement settings, and owner-provided announcement text until the room is deleted."
+  "end_user_data_statement": "This cog temporarily stores Roomer channel IDs, owner IDs, game announcement settings, owner-provided announcement text, and RSVP user IDs and responses. RSVP data is removed when the game changes, its announcement or room is deleted, RSVP is disabled, or a user-data deletion request is processed."
 }

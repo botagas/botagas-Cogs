@@ -133,6 +133,9 @@ SteamGridDB as an optional artwork fallback.
 - `/roomannounce channels` — List Join-to-Create channels and their effective announcement destinations.
 - `/roomannounce autoannounce <enabled>` — Toggle automatic publishing (disabled by default).
 - `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
+- `/roomannounce activehours set <timezone> <start> <end> [weekdays]` — Schedule hours when automatic role tags are allowed.
+- `/roomannounce activehours enable|force|clear|settings` — Toggle, enforce, clear, or inspect active hours.
+- `/roomannounce rsvp enable|names|settings` — Configure persistent announcement RSVP controls.
 - `/roomannounce provider <provider> <enabled>` — Enable IGDB or SteamGridDB per server.
 - `/roomannounce lookup <game_name>` — Test exact-title provider matching and credential/API status.
 - `/roomannounce role <add|remove|list> [role]` — Manage roles owners may select.
@@ -159,6 +162,10 @@ SteamGridDB artwork requires its own API key:
 - Missing roles never result in an unintended mention; the owner is warned in the voice channel.
 - Public announcements and stored state are cleaned up when the Roomer channel is deleted.
 - Public embeds omit unavailable optional data; local previews retain missing-data and provider diagnostics.
+- Active hours suppress automatic role pings without stopping informational announcement updates; forced hours also block manual pings.
+- Active-hour weekdays are comma-separated names such as `Mon,Wed,Fri`; overnight windows use the weekday on which the window starts.
+- Optional RSVP buttons track Join, Maybe, and Not Coming responses and notify room owners at configured participation milestones.
+- Unlimited voice channels show only their current room size; limited channels show current and maximum size.
 
 ---
 

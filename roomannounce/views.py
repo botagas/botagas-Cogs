@@ -128,6 +128,51 @@ class MetadataChoiceView(discord.ui.View):
         self.add_item(MetadataSelect(cog, channel_id, candidates))
 
 
+class RSVPView(discord.ui.View):
+    def __init__(self, cog: Any, channel_id: int):
+        super().__init__(timeout=None)
+        self.cog = cog
+        self.channel_id = channel_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.bot:
+            await interaction.response.send_message("Bots cannot RSVP.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(
+        label="Join",
+        custom_id="roomannounce:rsvp:join",
+        style=discord.ButtonStyle.success,
+    )
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.set_rsvp(interaction, self.channel_id, "join")
+
+    @discord.ui.button(
+        label="Maybe",
+        custom_id="roomannounce:rsvp:maybe",
+        style=discord.ButtonStyle.primary,
+    )
+    async def maybe(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.set_rsvp(interaction, self.channel_id, "maybe")
+
+    @discord.ui.button(
+        label="Not Coming",
+        custom_id="roomannounce:rsvp:not_coming",
+        style=discord.ButtonStyle.danger,
+    )
+    async def not_coming(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.set_rsvp(interaction, self.channel_id, "not_coming")
+
+    @discord.ui.button(
+        label="Participants",
+        custom_id="roomannounce:rsvp:participants",
+        style=discord.ButtonStyle.secondary,
+    )
+    async def participants(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.show_participants(interaction, self.channel_id)
+
+
 class AnnouncementControlView(discord.ui.View):
     def __init__(
         self,

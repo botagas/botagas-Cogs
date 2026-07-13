@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 from typing import Any, Dict, List, Optional
+from zoneinfo import available_timezones
 
 import aiohttp
 import discord
@@ -11,16 +12,25 @@ from redbot.core import Config, commands
 from .models import (
     MISSING_GAME,
     MISSING_PARTY,
-    MISSING_ROLE,
+    RSVP_STATUSES,
+    active_hours_are_active,
+    active_hours_days_text,
     announcement_destination_id,
     automatic_metadata_ready,
+    consume_rsvp_milestones,
     default_room_state,
+    format_room_size,
     game_names_match,
     has_game_context,
-    normalize_game_name,
+    is_new_game_post,
+    parse_clock,
+    parse_weekdays,
     preset_game_name,
     preview_should_be_visible,
     resolve_fields,
+    rsvp_groups,
+    tagging_is_allowed,
+    validate_timezone,
 )
 from .providers import MetadataProviderError, ProviderHub
 from .views import (
@@ -28,6 +38,7 @@ from .views import (
     GameChoiceView,
     MetadataChoiceView,
     RoleChoiceView,
+    RSVPView,
 )
 
 log = logging.getLogger("red.botagas.roomannounce")
@@ -38,6 +49,16 @@ class RoomAnnounce(commands.Cog):
 
     roomannounce_group = app_commands.Group(
         name="roomannounce", description="Configure Roomer game announcements."
+    )
+    activehours_group = app_commands.Group(
+        name="activehours",
+        description="Configure scheduled announcement tagging hours.",
+        parent=roomannounce_group,
+    )
+    rsvp_group = app_commands.Group(
+        name="rsvp",
+        description="Configure announcement RSVP controls.",
+        parent=roomannounce_group,
     )
 
     def __init__(self, bot):
@@ -51,20 +72,60 @@ class RoomAnnounce(commands.Cog):
             igdb_enabled=False,
             steamgriddb_enabled=False,
             allowed_role_ids=[],
+            active_hours_enabled=False,
+            active_hours_timezone="",
+            active_hours_start="",
+            active_hours_end="",
+            active_hours_weekdays=list(range(7)),
+            active_hours_forced=False,
+            rsvp_enabled=False,
+            rsvp_show_names=False,
         )
         channel_defaults = default_room_state(0)
         channel_defaults["owner_id"] = None
         self.config.register_channel(**channel_defaults)
         self.session = aiohttp.ClientSession()
         self.providers = ProviderHub(bot, self.session)
+        self._timezones = sorted(available_timezones())
         self._presence_tasks: Dict[int, asyncio.Task] = {}
+        self._rsvp_locks: Dict[int, asyncio.Lock] = {}
         self._initialize_task = asyncio.create_task(self._initialize())
 
     async def cog_unload(self):
         self._initialize_task.cancel()
         for task in self._presence_tasks.values():
             task.cancel()
+        self._rsvp_locks.clear()
         await self.session.close()
+
+    async def cog_app_command_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ) -> None:
+        command_name = getattr(getattr(interaction, "command", None), "qualified_name", "unknown")
+        guild_id = getattr(getattr(interaction, "guild", None), "id", None)
+        user_id = getattr(getattr(interaction, "user", None), "id", None)
+        original = error.original if isinstance(error, app_commands.CommandInvokeError) else error
+        log.error(
+            "RoomAnnounce application command failed: command=%s guild=%s user=%s",
+            command_name,
+            guild_id,
+            user_id,
+            exc_info=(type(original), original, original.__traceback__),
+        )
+        message = (
+            "❌ You do not have permission to use this command."
+            if isinstance(error, app_commands.CheckFailure)
+            else "❌ RoomAnnounce could not complete that command. The failure was logged."
+        )
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except (discord.NotFound, discord.HTTPException):
+            log.warning(
+                "Could not deliver application-command error response for %s", command_name
+            )
 
     async def _initialize(self):
         await self.bot.wait_until_red_ready()
@@ -98,6 +159,22 @@ class RoomAnnounce(commands.Cog):
                     await self.cleanup_room(channel)
                 else:
                     await self.config.channel_from_id(channel_id).clear()
+                continue
+            responses = state.get("rsvp_responses") or {}
+            if str(user_id) not in responses:
+                continue
+            async with self._rsvp_lock(channel_id):
+                state = await self.get_state(channel_id)
+                responses = state.get("rsvp_responses") or {}
+                responses.pop(str(user_id), None)
+                state["rsvp_responses"] = responses
+                await self._save_state(channel_id, state)
+                channel = self.bot.get_channel(channel_id)
+                if isinstance(channel, discord.VoiceChannel) and state.get("public_message_id"):
+                    with contextlib.suppress(
+                        RuntimeError, discord.HTTPException, discord.Forbidden
+                    ):
+                        await self.publish_room(channel)
 
     def _roomer(self):
         return self.bot.get_cog("Roomer")
@@ -182,6 +259,9 @@ class RoomAnnounce(commands.Cog):
             state["control_message_id"] = control_message.id
         elif restore:
             self.bot.add_view(view, message_id=control_message.id)
+        settings = await self.config.guild(channel.guild).all()
+        if restore and settings.get("rsvp_enabled") and state.get("public_message_id"):
+            self.bot.add_view(RSVPView(self, channel.id), message_id=state["public_message_id"])
         await self._save_state(channel.id, state)
         owner = channel.guild.get_member(owner_id)
         if owner:
@@ -320,6 +400,10 @@ class RoomAnnounce(commands.Cog):
             state["suppressed_identity"] = None
             state["missing_role_warned_identity"] = None
             state["tagged_identity"] = None
+        if state.get("rsvp_identity") != new_identity:
+            state["rsvp_identity"] = new_identity
+            state["rsvp_responses"] = {}
+            state["rsvp_milestones"] = []
         state["identity"] = new_identity
         state["resolved"] = resolved
         state["auto_eligible"] = automatic_metadata_ready(resolved, preset, detected, provider)
@@ -335,7 +419,14 @@ class RoomAnnounce(commands.Cog):
         )
         if should_publish:
             try:
-                await self.publish_room(channel, tag_requested=settings.get("auto_tag", False))
+                await self.publish_room(
+                    channel,
+                    tag_source=(
+                        "automatic"
+                        if is_new_game_post(had_public_announcement, old_identity, new_identity)
+                        else "none"
+                    ),
+                )
             except (RuntimeError, discord.Forbidden, discord.HTTPException) as exc:
                 state = await self.get_state(channel.id)
                 state["last_error"] = str(exc)
@@ -345,8 +436,35 @@ class RoomAnnounce(commands.Cog):
     def _preview_should_be_visible(self, state: Dict[str, Any]) -> bool:
         return preview_should_be_visible(state)
 
+    def _rsvp_field_value(
+        self, guild: discord.Guild, user_ids: List[int], show_names: bool
+    ) -> str:
+        if not show_names or not user_ids:
+            return str(len(user_ids))
+        names = []
+        for user_id in user_ids:
+            member = guild.get_member(user_id)
+            if member is None:
+                continue
+            name = discord.utils.escape_mentions(
+                discord.utils.escape_markdown(member.display_name)
+            )
+            names.append(name)
+            if len(names) == 5:
+                break
+        value = f"**{len(user_ids)}**"
+        if names:
+            value += "\n" + ", ".join(names)
+            if len(user_ids) > len(names):
+                value += f" +{len(user_ids) - len(names)} more"
+        return value[:1024]
+
     def _build_embed(
-        self, channel: discord.VoiceChannel, state: Dict[str, Any], public: bool = False
+        self,
+        channel: discord.VoiceChannel,
+        state: Dict[str, Any],
+        public: bool = False,
+        guild_settings: Optional[Dict[str, Any]] = None,
     ) -> discord.Embed:
         resolved = state.get("resolved") or {}
         game_name = resolved.get("game_name") or MISSING_GAME
@@ -372,11 +490,9 @@ class RoomAnnounce(commands.Cog):
             )
         if resolved.get("party") or not public:
             embed.add_field(name="Game party", value=resolved.get("party") or MISSING_PARTY)
-        voice_limit = channel.user_limit or "unlimited"
-        embed.add_field(name="Room size", value=f"{len(channel.members)}/{voice_limit}")
-        role = channel.guild.get_role(resolved.get("role_id")) if resolved.get("role_id") else None
-        if role or not public:
-            embed.add_field(name="Announcement role", value=role.mention if role else MISSING_ROLE)
+        embed.add_field(
+            name="Room size", value=format_room_size(len(channel.members), channel.user_limit)
+        )
         embed.add_field(name="Voice channel", value=channel.mention)
         if resolved.get("note"):
             embed.add_field(name="Note", value=resolved["note"][:1024], inline=False)
@@ -405,6 +521,21 @@ class RoomAnnounce(commands.Cog):
                     value="\n".join(f"• {item}" for item in diagnostics)[:1024],
                     inline=False,
                 )
+        if public and (guild_settings or {}).get("rsvp_enabled"):
+            groups = rsvp_groups(state.get("rsvp_responses") or {})
+            show_names = bool(guild_settings.get("rsvp_show_names"))
+            embed.add_field(
+                name="Joining",
+                value=self._rsvp_field_value(channel.guild, groups["join"], show_names),
+            )
+            embed.add_field(
+                name="Maybe",
+                value=self._rsvp_field_value(channel.guild, groups["maybe"], show_names),
+            )
+            embed.add_field(
+                name="Not Coming",
+                value=self._rsvp_field_value(channel.guild, groups["not_coming"], show_names),
+            )
         if resolved.get("image_url", "").startswith("https://"):
             embed.set_thumbnail(url=resolved["image_url"])
         owner = channel.guild.get_member(state.get("owner_id"))
@@ -456,7 +587,7 @@ class RoomAnnounce(commands.Cog):
         await self._save_state(channel.id, state)
 
     async def publish_room(
-        self, channel: discord.VoiceChannel, tag_requested: bool = False
+        self, channel: discord.VoiceChannel, tag_source: str = "none"
     ) -> discord.Message:
         state = await self.get_state(channel.id)
         if not state.get("announcements_enabled"):
@@ -476,10 +607,15 @@ class RoomAnnounce(commands.Cog):
 
         role_id = (state.get("resolved") or {}).get("role_id")
         role = channel.guild.get_role(role_id) if role_id else None
+        tag_requested = tag_source in {"automatic", "manual"}
+        tag_allowed = tagging_is_allowed(guild_settings, tag_source)
         should_tag = bool(
-            tag_requested and role and state.get("tagged_identity") != state.get("identity")
+            tag_requested
+            and tag_allowed
+            and role
+            and state.get("tagged_identity") != state.get("identity")
         )
-        if tag_requested and role is None:
+        if tag_requested and tag_allowed and role is None:
             await self._warn_missing_role(channel, state)
             state = await self.get_state(channel.id)
         elif should_tag and not (
@@ -501,10 +637,14 @@ class RoomAnnounce(commands.Cog):
             existing = None
             state["public_message_id"] = None
 
-        embed = self._build_embed(channel, state, public=True)
+        embed = self._build_embed(channel, state, public=True, guild_settings=guild_settings)
+        view = RSVPView(self, channel.id) if guild_settings.get("rsvp_enabled") else None
         if existing:
             await existing.edit(
-                content="", embed=embed, allowed_mentions=discord.AllowedMentions.none()
+                content="",
+                embed=embed,
+                view=view,
+                allowed_mentions=discord.AllowedMentions.none(),
             )
             message = existing
         else:
@@ -515,7 +655,10 @@ class RoomAnnounce(commands.Cog):
                 else discord.AllowedMentions.none()
             )
             message = await destination.send(
-                content=content, embed=embed, allowed_mentions=allowed_mentions
+                content=content,
+                embed=embed,
+                view=view,
+                allowed_mentions=allowed_mentions,
             )
         state["public_message_id"] = message.id
         state["public_channel_id"] = destination.id
@@ -543,6 +686,8 @@ class RoomAnnounce(commands.Cog):
         state["public_channel_id"] = None
         if suppress:
             state["suppressed_identity"] = state.get("identity")
+            state["rsvp_responses"] = {}
+            state["rsvp_milestones"] = []
         await self._save_state(channel.id, state)
 
     async def cleanup_room(self, channel: discord.VoiceChannel) -> None:
@@ -552,6 +697,7 @@ class RoomAnnounce(commands.Cog):
         if preview:
             with contextlib.suppress(discord.HTTPException):
                 await preview.delete()
+        self._rsvp_locks.pop(channel.id, None)
         await self.config.channel(channel).clear()
 
     async def _game_choice_options(
@@ -578,9 +724,10 @@ class RoomAnnounce(commands.Cog):
         return options
 
     async def show_game_choices(self, interaction: discord.Interaction, channel_id: int) -> None:
+        await interaction.response.defer(ephemeral=True)
         channel = interaction.guild.get_channel(channel_id)
         options = await self._game_choice_options(interaction.guild, channel_id)
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "Choose the game information source:",
             view=GameChoiceView(self, channel.id, options),
             ephemeral=True,
@@ -663,6 +810,7 @@ class RoomAnnounce(commands.Cog):
         await interaction.followup.send("✅ Metadata selected.", ephemeral=True)
 
     async def show_role_choices(self, interaction: discord.Interaction, channel_id: int) -> None:
+        await interaction.response.defer(ephemeral=True)
         allowed_ids = await self.config.guild(interaction.guild).allowed_role_ids()
         roomer = self._roomer()
         if roomer:
@@ -673,11 +821,134 @@ class RoomAnnounce(commands.Cog):
                     allowed_ids.append(role_id)
         roles = [interaction.guild.get_role(role_id) for role_id in allowed_ids]
         roles = [role for role in roles if role is not None]
-        await interaction.response.send_message(
-            "Choose an approved role. Selecting one also republishes the current announcement with a tag.",
+        settings = await self.config.guild(interaction.guild).all()
+        description = (
+            "Choose an approved role. Selecting one also republishes the current announcement with a tag."
+            if tagging_is_allowed(settings, "manual")
+            else "Choose an approved role. Forced active hours currently prevent the role from being tagged."
+        )
+        await interaction.followup.send(
+            description,
             view=RoleChoiceView(self, channel_id, roles),
             ephemeral=True,
         )
+
+    def _rsvp_lock(self, channel_id: int) -> asyncio.Lock:
+        return self._rsvp_locks.setdefault(channel_id, asyncio.Lock())
+
+    async def _rsvp_context(
+        self, interaction: discord.Interaction, channel_id: int
+    ) -> tuple[Optional[discord.VoiceChannel], Optional[Dict[str, Any]], Optional[str]]:
+        if interaction.guild is None:
+            return None, None, "RSVP controls can only be used in a server."
+        channel = interaction.guild.get_channel(channel_id)
+        if not isinstance(channel, discord.VoiceChannel):
+            return None, None, "This room no longer exists."
+        state = await self.get_state(channel_id)
+        settings = await self.config.guild(interaction.guild).all()
+        if not settings.get("rsvp_enabled"):
+            return channel, state, "RSVP controls are disabled on this server."
+        message_id = getattr(getattr(interaction, "message", None), "id", None)
+        if not message_id or message_id != state.get("public_message_id"):
+            return channel, state, "This announcement is no longer current."
+        if not state.get("identity") or state.get("rsvp_identity") != state.get("identity"):
+            return channel, state, "This announcement's game session is no longer current."
+        return channel, state, None
+
+    async def _notify_rsvp_milestone(
+        self, channel: discord.VoiceChannel, state: Dict[str, Any], milestone: int
+    ) -> None:
+        owner = channel.guild.get_member(state.get("owner_id"))
+        if owner is None:
+            return
+        noun = "person plans" if milestone == 1 else "people plan"
+        try:
+            await channel.send(
+                f"🎉 {owner.mention}, {milestone} {noun} to join this session.",
+                allowed_mentions=discord.AllowedMentions(
+                    users=[owner], roles=False, everyone=False, replied_user=False
+                ),
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            log.exception("Failed to send RSVP milestone %s for room %s", milestone, channel.id)
+
+    async def set_rsvp(
+        self, interaction: discord.Interaction, channel_id: int, status: str
+    ) -> None:
+        await interaction.response.defer(ephemeral=True)
+        if status not in RSVP_STATUSES:
+            return await interaction.followup.send("Invalid RSVP response.", ephemeral=True)
+        milestone = None
+        async with self._rsvp_lock(channel_id):
+            channel, state, error = await self._rsvp_context(interaction, channel_id)
+            if error:
+                return await interaction.followup.send(f"❌ {error}", ephemeral=True)
+            responses = state.get("rsvp_responses") or {}
+            responses[str(interaction.user.id)] = status
+            state["rsvp_responses"] = responses
+            join_count = len(rsvp_groups(responses)["join"])
+            milestone, consumed = consume_rsvp_milestones(
+                state.get("rsvp_milestones") or [], join_count
+            )
+            state["rsvp_milestones"] = consumed
+            await self._save_state(channel_id, state)
+            try:
+                await self.publish_room(channel)
+            except (RuntimeError, discord.Forbidden, discord.HTTPException) as exc:
+                log.warning("Could not refresh RSVP announcement for room %s: %s", channel_id, exc)
+            if milestone is not None:
+                await self._notify_rsvp_milestone(channel, state, milestone)
+        labels = {"join": "Join", "maybe": "Maybe", "not_coming": "Not Coming"}
+        await interaction.followup.send(
+            f"✅ Your response is now **{labels[status]}**.", ephemeral=True
+        )
+
+    def _participant_pages(self, guild: discord.Guild, responses: Dict[str, str]) -> List[str]:
+        groups = rsvp_groups(responses)
+        labels = {"join": "Joining", "maybe": "Maybe", "not_coming": "Not Coming"}
+        lines = []
+        for status in RSVP_STATUSES:
+            user_ids = groups[status]
+            lines.append(f"**{labels[status]} ({len(user_ids)})**")
+            if not user_ids:
+                lines.append("• None")
+                continue
+            for user_id in user_ids:
+                member = guild.get_member(user_id)
+                name = member.display_name if member else f"Unknown member ({user_id})"
+                name = discord.utils.escape_mentions(discord.utils.escape_markdown(name))
+                lines.append(f"• {name}")
+        pages = []
+        current = ""
+        for line in lines:
+            candidate = f"{current}\n{line}" if current else line
+            if len(candidate) > 3500:
+                pages.append(current)
+                current = line
+            else:
+                current = candidate
+        if current or not pages:
+            pages.append(current or "No responses yet.")
+        return pages
+
+    async def show_participants(self, interaction: discord.Interaction, channel_id: int) -> None:
+        await interaction.response.defer(ephemeral=True)
+        channel, state, error = await self._rsvp_context(interaction, channel_id)
+        if error:
+            return await interaction.followup.send(f"❌ {error}", ephemeral=True)
+        for index, page in enumerate(
+            self._participant_pages(interaction.guild, state.get("rsvp_responses") or {})
+        ):
+            embed = discord.Embed(
+                title=(
+                    "Announcement Participants"
+                    if index == 0
+                    else f"Announcement Participants — Page {index + 1}"
+                ),
+                description=page,
+                color=discord.Color.blurple(),
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     async def select_role(
         self, interaction: discord.Interaction, channel_id: int, role_id: Optional[int]
@@ -694,10 +965,17 @@ class RoomAnnounce(commands.Cog):
             and state.get("announcements_enabled")
             and has_game_context(state.get("resolved", {}))
         ):
+            settings = await self.config.guild(interaction.guild).all()
+            manual_tag_allowed = tagging_is_allowed(settings, "manual")
             try:
-                await self.publish_room(channel, tag_requested=True)
+                await self.publish_room(channel, tag_source="manual")
             except RuntimeError as exc:
                 return await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
+            if not manual_tag_allowed:
+                return await interaction.followup.send(
+                    "✅ Announcement role updated, but forced active hours currently prevent role tagging.",
+                    ephemeral=True,
+                )
         await interaction.followup.send("✅ Announcement role updated.", ephemeral=True)
 
     async def publish_from_interaction(
@@ -743,6 +1021,8 @@ class RoomAnnounce(commands.Cog):
         if not enabled:
             await self._delete_public(channel, state, suppress=False)
             state = await self.get_state(channel_id)
+            state["rsvp_responses"] = {}
+            state["rsvp_milestones"] = []
         await self._save_state(channel_id, state)
         await self.resolve_room(channel)
         await interaction.followup.send(
@@ -868,6 +1148,24 @@ class RoomAnnounce(commands.Cog):
         if service_name in {"twitch", "steamgriddb"}:
             self.providers.invalidate(service_name)
 
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        user_key = str(member.id)
+        for channel in self._active_guild_rooms(member.guild):
+            async with self._rsvp_lock(channel.id):
+                state = await self.get_state(channel.id)
+                responses = state.get("rsvp_responses") or {}
+                if user_key not in responses:
+                    continue
+                responses.pop(user_key, None)
+                state["rsvp_responses"] = responses
+                await self._save_state(channel.id, state)
+                if state.get("public_message_id"):
+                    with contextlib.suppress(
+                        RuntimeError, discord.Forbidden, discord.HTTPException
+                    ):
+                        await self.publish_room(channel)
+
     async def _apply_presence_after_delay(self, channel_id: int, member: discord.Member):
         try:
             await asyncio.sleep(30)
@@ -959,6 +1257,7 @@ class RoomAnnounce(commands.Cog):
     )
     @app_commands.default_permissions(administrator=True)
     async def list_channels(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         data = await self.config.guild(interaction.guild).all()
         default = interaction.guild.get_channel(data.get("announcement_channel_id"))
         roomer = self._roomer()
@@ -1005,10 +1304,7 @@ class RoomAnnounce(commands.Cog):
                 + ("\n".join(page) or "No Join-to-Create channels are configured."),
                 color=discord.Color.blurple(),
             )
-            if index == 0:
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-            else:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     @roomannounce_group.command(name="autoannounce", description="Toggle automatic publishing.")
     @app_commands.default_permissions(administrator=True)
@@ -1025,10 +1321,189 @@ class RoomAnnounce(commands.Cog):
     @roomannounce_group.command(name="autotag", description="Toggle automatic role tagging.")
     @app_commands.default_permissions(administrator=True)
     async def autotag(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
         await self.config.guild(interaction.guild).auto_tag.set(enabled)
-        await interaction.response.send_message(
-            f"✅ Automatic role tagging {'enabled' if enabled else 'disabled'}.", ephemeral=True
+        await interaction.followup.send(
+            f"✅ Automatic role tagging {'enabled' if enabled else 'disabled'}. "
+            "This affects future initial or new-game posts and never re-pings existing announcements.",
+            ephemeral=True,
         )
+
+    @activehours_group.command(name="set", description="Set and enable active tagging hours.")
+    @app_commands.describe(
+        timezone="IANA timezone, for example Europe/Vilnius",
+        start="Start time in 24-hour HH:MM format",
+        end="End time in 24-hour HH:MM format",
+        weekdays="Optional comma-separated weekdays; defaults to every day",
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def activehours_set(
+        self,
+        interaction: discord.Interaction,
+        timezone: str,
+        start: str,
+        end: str,
+        weekdays: Optional[str] = None,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            timezone = validate_timezone(timezone)
+            start_minutes = parse_clock(start)
+            end_minutes = parse_clock(end)
+            days = parse_weekdays(weekdays)
+            if start_minutes == end_minutes:
+                raise ValueError("Start and end times must be different.")
+        except ValueError as exc:
+            return await interaction.followup.send(f"❌ {exc}", ephemeral=True)
+        start = f"{start_minutes // 60:02d}:{start_minutes % 60:02d}"
+        end = f"{end_minutes // 60:02d}:{end_minutes % 60:02d}"
+        group = self.config.guild(interaction.guild)
+        await group.active_hours_timezone.set(timezone)
+        await group.active_hours_start.set(start)
+        await group.active_hours_end.set(end)
+        await group.active_hours_weekdays.set(days)
+        await group.active_hours_enabled.set(True)
+        await interaction.followup.send(
+            f"✅ Active hours enabled: **{active_hours_days_text(days)}**, "
+            f"**{start}–{end}** in **{timezone}**.",
+            ephemeral=True,
+        )
+
+    @activehours_set.autocomplete("timezone")
+    async def activehours_timezone_autocomplete(
+        self, interaction: discord.Interaction, current: str
+    ) -> List[app_commands.Choice[str]]:
+        current = current.casefold().strip()
+        matches = [item for item in self._timezones if current in item.casefold()]
+        return [app_commands.Choice(name=item, value=item) for item in matches[:25]]
+
+    @activehours_group.command(name="enable", description="Enable or disable active hours.")
+    @app_commands.default_permissions(administrator=True)
+    async def activehours_enable(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        group = self.config.guild(interaction.guild)
+        if enabled:
+            data = await group.all()
+            try:
+                validate_timezone(data.get("active_hours_timezone"))
+                start = parse_clock(data.get("active_hours_start"))
+                end = parse_clock(data.get("active_hours_end"))
+                if start == end:
+                    raise ValueError("Start and end times must be different.")
+            except ValueError as exc:
+                return await interaction.followup.send(
+                    f"❌ Configure valid active hours first: {exc}", ephemeral=True
+                )
+        await group.active_hours_enabled.set(enabled)
+        if not enabled:
+            await group.active_hours_forced.set(False)
+        await interaction.followup.send(
+            f"✅ Active hours {'enabled' if enabled else 'disabled'}.", ephemeral=True
+        )
+
+    @activehours_group.command(
+        name="force", description="Forbid manual role tags outside active hours."
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def activehours_force(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        group = self.config.guild(interaction.guild)
+        if enabled and not await group.active_hours_enabled():
+            return await interaction.followup.send(
+                "❌ Enable and configure active hours before forcing them.", ephemeral=True
+            )
+        await group.active_hours_forced.set(enabled)
+        await interaction.followup.send(
+            f"✅ Forced active hours {'enabled' if enabled else 'disabled'}.", ephemeral=True
+        )
+
+    @activehours_group.command(name="clear", description="Clear the active-hours schedule.")
+    @app_commands.default_permissions(administrator=True)
+    async def activehours_clear(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        group = self.config.guild(interaction.guild)
+        await group.active_hours_enabled.set(False)
+        await group.active_hours_forced.set(False)
+        await group.active_hours_timezone.set("")
+        await group.active_hours_start.set("")
+        await group.active_hours_end.set("")
+        await group.active_hours_weekdays.set(list(range(7)))
+        await interaction.followup.send("✅ Active hours cleared.", ephemeral=True)
+
+    @activehours_group.command(name="settings", description="Show active-hours settings.")
+    @app_commands.default_permissions(administrator=True)
+    async def activehours_settings(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        data = await self.config.guild(interaction.guild).all()
+        enabled = bool(data.get("active_hours_enabled"))
+        active = active_hours_are_active(data) if enabled else False
+        embed = discord.Embed(title="RoomAnnounce Active Hours", color=discord.Color.blurple())
+        embed.add_field(name="Enabled", value=str(enabled))
+        embed.add_field(name="Currently active", value=str(active) if enabled else "Disabled")
+        embed.add_field(name="Forced", value=str(data.get("active_hours_forced", False)))
+        embed.add_field(
+            name="Timezone", value=data.get("active_hours_timezone") or "Not configured"
+        )
+        embed.add_field(
+            name="Window",
+            value=(
+                f"{data.get('active_hours_start')}–{data.get('active_hours_end')}"
+                if data.get("active_hours_start") and data.get("active_hours_end")
+                else "Not configured"
+            ),
+        )
+        embed.add_field(
+            name="Weekdays",
+            value=active_hours_days_text(data.get("active_hours_weekdays") or []),
+            inline=False,
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    async def _refresh_rsvp_configuration(
+        self, guild: discord.Guild, clear_responses: bool = False
+    ) -> None:
+        for room in self._active_guild_rooms(guild):
+            state = await self.get_state(room.id)
+            if clear_responses or state.get("rsvp_identity") != state.get("identity"):
+                state["rsvp_identity"] = state.get("identity")
+                state["rsvp_responses"] = {}
+                state["rsvp_milestones"] = []
+                await self._save_state(room.id, state)
+            if state.get("public_message_id"):
+                with contextlib.suppress(RuntimeError, discord.Forbidden, discord.HTTPException):
+                    await self.publish_room(room)
+
+    @rsvp_group.command(name="enable", description="Enable or disable announcement RSVP.")
+    @app_commands.default_permissions(administrator=True)
+    async def rsvp_enable(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        await self.config.guild(interaction.guild).rsvp_enabled.set(enabled)
+        await self._refresh_rsvp_configuration(interaction.guild, clear_responses=not enabled)
+        await interaction.followup.send(
+            f"✅ Announcement RSVP {'enabled' if enabled else 'disabled'}.", ephemeral=True
+        )
+
+    @rsvp_group.command(name="names", description="Show or hide RSVP participant names.")
+    @app_commands.default_permissions(administrator=True)
+    async def rsvp_names(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        await self.config.guild(interaction.guild).rsvp_show_names.set(enabled)
+        await self._refresh_rsvp_configuration(interaction.guild)
+        await interaction.followup.send(
+            f"✅ RSVP participant names {'shown' if enabled else 'hidden'}.", ephemeral=True
+        )
+
+    @rsvp_group.command(name="settings", description="Show RSVP settings.")
+    @app_commands.default_permissions(administrator=True)
+    async def rsvp_settings(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        data = await self.config.guild(interaction.guild).all()
+        embed = discord.Embed(title="RoomAnnounce RSVP", color=discord.Color.blurple())
+        embed.add_field(name="Enabled", value=str(data.get("rsvp_enabled", False)))
+        embed.add_field(
+            name="Display participant names", value=str(data.get("rsvp_show_names", False))
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @roomannounce_group.command(name="provider", description="Enable a metadata provider.")
     @app_commands.choices(
@@ -1104,21 +1579,22 @@ class RoomAnnounce(commands.Cog):
         action: app_commands.Choice[str],
         role: Optional[discord.Role] = None,
     ):
+        await interaction.response.defer(ephemeral=True)
         role_ids = await self.config.guild(interaction.guild).allowed_role_ids()
         if action.value == "list":
             roles = [interaction.guild.get_role(role_id) for role_id in role_ids]
             value = ", ".join(item.mention for item in roles if item) or "None"
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"Approved announcement roles: {value}", ephemeral=True
             )
         if role is None:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ Select a role for this action.", ephemeral=True
             )
         if action.value == "add":
             if role.id not in role_ids:
                 if len(role_ids) >= 24:
-                    return await interaction.response.send_message(
+                    return await interaction.followup.send(
                         "❌ At most 24 approved roles are supported so the selector can include a clear option.",
                         ephemeral=True,
                     )
@@ -1126,7 +1602,7 @@ class RoomAnnounce(commands.Cog):
         elif role.id in role_ids:
             role_ids.remove(role.id)
         await self.config.guild(interaction.guild).allowed_role_ids.set(role_ids)
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"✅ {role.mention} {'added to' if action.value == 'add' else 'removed from'} approved roles.",
             ephemeral=True,
         )
@@ -1134,6 +1610,7 @@ class RoomAnnounce(commands.Cog):
     @roomannounce_group.command(name="settings", description="Show announcement settings.")
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         data = await self.config.guild(interaction.guild).all()
         twitch_tokens = await self.bot.get_shared_api_tokens("twitch")
         steamgriddb_tokens = await self.bot.get_shared_api_tokens("steamgriddb")
@@ -1149,6 +1626,30 @@ class RoomAnnounce(commands.Cog):
         )
         embed.add_field(name="Automatic announce", value=str(data["auto_announce"]))
         embed.add_field(name="Automatic tag", value=str(data["auto_tag"]))
+        schedule_enabled = bool(data.get("active_hours_enabled"))
+        schedule_active = active_hours_are_active(data) if schedule_enabled else True
+        embed.add_field(
+            name="Autotag effective now",
+            value=str(bool(data["auto_tag"] and schedule_active)),
+        )
+        embed.add_field(
+            name="Active hours",
+            value=(
+                f"{data.get('active_hours_start')}–{data.get('active_hours_end')} "
+                f"({data.get('active_hours_timezone')}); "
+                f"{'active' if schedule_active else 'inactive'}"
+                if schedule_enabled
+                else "Disabled"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="Forced active hours", value=str(data.get("active_hours_forced", False))
+        )
+        embed.add_field(name="RSVP", value=str(data.get("rsvp_enabled", False)))
+        embed.add_field(
+            name="RSVP participant names", value=str(data.get("rsvp_show_names", False))
+        )
         igdb_credentials = bool(
             twitch_tokens.get("client_id") and twitch_tokens.get("client_secret")
         )
@@ -1171,7 +1672,7 @@ class RoomAnnounce(commands.Cog):
             value=", ".join(role.mention for role in roles if role) or "None",
             inline=False,
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot):

@@ -1,9 +1,32 @@
 import re
+from datetime import datetime
 from typing import Any, Dict, Iterable, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 MISSING_GAME = "Missing — enter manually or select a preset"
 MISSING_PARTY = "Unknown — Rich Presence did not provide party information"
-MISSING_ROLE = "No matching role — announcement will not tag a role"
+RSVP_STATUSES = ("join", "maybe", "not_coming")
+RSVP_MILESTONES = (1, 5, 10, 25, 50, 100, 200, 500, 1000)
+WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+WEEKDAY_ALIASES = {
+    "mon": 0,
+    "monday": 0,
+    "tue": 1,
+    "tues": 1,
+    "tuesday": 1,
+    "wed": 2,
+    "wednesday": 2,
+    "thu": 3,
+    "thur": 3,
+    "thurs": 3,
+    "thursday": 3,
+    "fri": 4,
+    "friday": 4,
+    "sat": 5,
+    "saturday": 5,
+    "sun": 6,
+    "sunday": 6,
+}
 
 
 def normalize_game_name(value: Optional[str]) -> str:
@@ -35,6 +58,129 @@ def announcement_destination_id(
     return guild_settings.get("announcement_channel_id")
 
 
+def parse_clock(value: str) -> int:
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})", (value or "").strip())
+    if not match:
+        raise ValueError("Times must use 24-hour `HH:MM` format.")
+    hour, minute = (int(part) for part in match.groups())
+    if hour > 23 or minute > 59:
+        raise ValueError("Times must use 24-hour `HH:MM` format.")
+    return hour * 60 + minute
+
+
+def parse_weekdays(value: Optional[str]) -> list[int]:
+    if not value or not value.strip():
+        return list(range(7))
+    days = []
+    for item in value.split(","):
+        normalized = item.strip().casefold()
+        if normalized not in WEEKDAY_ALIASES:
+            raise ValueError(f"Unknown weekday `{item.strip()}`.")
+        day = WEEKDAY_ALIASES[normalized]
+        if day not in days:
+            days.append(day)
+    if not days:
+        raise ValueError("Select at least one weekday.")
+    return sorted(days)
+
+
+def validate_timezone(value: str) -> str:
+    timezone = (value or "").strip()
+    try:
+        ZoneInfo(timezone)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("Use a valid IANA timezone such as `Europe/Vilnius`.") from exc
+    return timezone
+
+
+def active_hours_are_active(
+    guild_settings: Dict[str, Any], now: Optional[datetime] = None
+) -> bool:
+    if not guild_settings.get("active_hours_enabled"):
+        return True
+    try:
+        timezone = ZoneInfo(guild_settings.get("active_hours_timezone") or "")
+        start = parse_clock(guild_settings.get("active_hours_start") or "")
+        end = parse_clock(guild_settings.get("active_hours_end") or "")
+    except (ZoneInfoNotFoundError, ValueError):
+        return False
+    if start == end:
+        return False
+    weekdays = set(guild_settings.get("active_hours_weekdays") or [])
+    if now is None:
+        local = datetime.now(timezone)
+    elif now.tzinfo is None:
+        local = now.replace(tzinfo=timezone)
+    else:
+        local = now.astimezone(timezone)
+    current = local.hour * 60 + local.minute
+    if start < end:
+        return local.weekday() in weekdays and start <= current < end
+    if current >= start:
+        return local.weekday() in weekdays
+    return current < end and (local.weekday() - 1) % 7 in weekdays
+
+
+def tagging_is_allowed(
+    guild_settings: Dict[str, Any], source: str, now: Optional[datetime] = None
+) -> bool:
+    if source == "automatic" and not guild_settings.get("auto_tag"):
+        return False
+    if source not in {"automatic", "manual"}:
+        return False
+    if not guild_settings.get("active_hours_enabled"):
+        return True
+    active = active_hours_are_active(guild_settings, now)
+    if source == "automatic":
+        return active
+    return active or not guild_settings.get("active_hours_forced")
+
+
+def is_new_game_post(
+    had_public_announcement: bool,
+    old_identity: Optional[str],
+    new_identity: Optional[str],
+) -> bool:
+    return not had_public_announcement or old_identity != new_identity
+
+
+def active_hours_days_text(days: Iterable[int]) -> str:
+    selected = sorted(set(days))
+    if selected == list(range(7)):
+        return "Every day"
+    return ", ".join(WEEKDAY_NAMES[day] for day in selected if 0 <= day <= 6) or "None"
+
+
+def format_room_size(member_count: int, user_limit: int) -> str:
+    return f"{member_count}/{user_limit}" if user_limit else str(member_count)
+
+
+def rsvp_groups(responses: Dict[str, str]) -> Dict[str, list[int]]:
+    groups = {status: [] for status in RSVP_STATUSES}
+    for user_id, status in responses.items():
+        if status in groups:
+            try:
+                groups[status].append(int(user_id))
+            except (TypeError, ValueError):
+                continue
+    return groups
+
+
+def consume_rsvp_milestones(
+    consumed: Iterable[int], join_count: int
+) -> tuple[Optional[int], list[int]]:
+    consumed_set = {int(value) for value in consumed}
+    newly_crossed = [
+        milestone
+        for milestone in RSVP_MILESTONES
+        if milestone <= join_count and milestone not in consumed_set
+    ]
+    if not newly_crossed:
+        return None, sorted(consumed_set)
+    consumed_set.update(newly_crossed)
+    return max(newly_crossed), sorted(consumed_set)
+
+
 def default_room_state(owner_id: int) -> Dict[str, Any]:
     return {
         "owner_id": owner_id,
@@ -51,6 +197,9 @@ def default_room_state(owner_id: int) -> Dict[str, Any]:
         "provider": {},
         "provider_diagnostics": [],
         "manual_overrides": {},
+        "rsvp_identity": None,
+        "rsvp_responses": {},
+        "rsvp_milestones": [],
         "selected_role_id": None,
         "resolved": {},
         "auto_eligible": False,

@@ -1,12 +1,26 @@
+from datetime import datetime, timezone
+
+import pytest
+
 from roomannounce.models import (
+    active_hours_are_active,
+    active_hours_days_text,
     announcement_destination_id,
     automatic_metadata_ready,
+    consume_rsvp_milestones,
     default_room_state,
+    format_room_size,
     game_names_match,
+    is_new_game_post,
     normalize_game_name,
+    parse_clock,
+    parse_weekdays,
     preset_game_name,
     preview_should_be_visible,
     resolve_fields,
+    rsvp_groups,
+    tagging_is_allowed,
+    validate_timezone,
 )
 
 
@@ -19,6 +33,115 @@ def test_announcement_destination_prefers_room_source_mapping_then_default():
     assert announcement_destination_id({"source_channel_id": 21}, settings) == 10
     assert announcement_destination_id({}, settings) == 10
     assert announcement_destination_id({"source_channel_id": 21}, {}) is None
+
+
+def test_active_hours_validation_and_display():
+    assert parse_clock("9:05") == 545
+    assert parse_clock("23:59") == 1439
+    with pytest.raises(ValueError):
+        parse_clock("24:00")
+    with pytest.raises(ValueError):
+        parse_clock("noon")
+    assert parse_weekdays(None) == list(range(7))
+    assert parse_weekdays("Mon, Wednesday, fri") == [0, 2, 4]
+    with pytest.raises(ValueError, match="Unknown weekday"):
+        parse_weekdays("Funday")
+    assert active_hours_days_text(range(7)) == "Every day"
+    assert active_hours_days_text([0, 4]) == "Monday, Friday"
+    assert validate_timezone("Europe/Vilnius") == "Europe/Vilnius"
+    with pytest.raises(ValueError, match="IANA timezone"):
+        validate_timezone("Moon/Sea_of_Tranquility")
+
+
+def test_daily_active_hours_boundaries_and_tag_policy():
+    settings = {
+        "active_hours_enabled": True,
+        "active_hours_timezone": "UTC",
+        "active_hours_start": "09:00",
+        "active_hours_end": "17:00",
+        "active_hours_weekdays": [0],
+        "active_hours_forced": True,
+        "auto_tag": True,
+    }
+    assert not active_hours_are_active(settings, datetime(2026, 7, 13, 8, 59, tzinfo=timezone.utc))
+    assert active_hours_are_active(settings, datetime(2026, 7, 13, 9, 0, tzinfo=timezone.utc))
+    assert active_hours_are_active(settings, datetime(2026, 7, 13, 16, 59, tzinfo=timezone.utc))
+    assert not active_hours_are_active(settings, datetime(2026, 7, 13, 17, 0, tzinfo=timezone.utc))
+    assert tagging_is_allowed(
+        settings, "automatic", datetime(2026, 7, 13, 12, 0, tzinfo=timezone.utc)
+    )
+    assert not tagging_is_allowed(
+        settings, "automatic", datetime(2026, 7, 13, 20, 0, tzinfo=timezone.utc)
+    )
+    assert not tagging_is_allowed(
+        settings, "manual", datetime(2026, 7, 13, 20, 0, tzinfo=timezone.utc)
+    )
+    settings["active_hours_forced"] = False
+    assert tagging_is_allowed(
+        settings, "manual", datetime(2026, 7, 13, 20, 0, tzinfo=timezone.utc)
+    )
+
+
+def test_overnight_active_hours_use_starting_weekday_and_handle_dst():
+    settings = {
+        "active_hours_enabled": True,
+        "active_hours_timezone": "Europe/Vilnius",
+        "active_hours_start": "22:00",
+        "active_hours_end": "03:00",
+        "active_hours_weekdays": [4],
+    }
+    assert active_hours_are_active(settings, datetime(2026, 7, 17, 20, 0, tzinfo=timezone.utc))
+    assert active_hours_are_active(settings, datetime(2026, 7, 17, 23, 30, tzinfo=timezone.utc))
+    assert not active_hours_are_active(settings, datetime(2026, 7, 18, 0, 0, tzinfo=timezone.utc))
+
+    settings.update(
+        active_hours_start="01:00",
+        active_hours_end="05:00",
+        active_hours_weekdays=[6],
+    )
+    assert active_hours_are_active(settings, datetime(2026, 3, 29, 0, 30, tzinfo=timezone.utc))
+
+
+def test_disabled_active_hours_do_not_restrict_tagging():
+    settings = {
+        "active_hours_enabled": False,
+        "active_hours_forced": True,
+        "auto_tag": True,
+    }
+    assert active_hours_are_active(settings)
+    assert tagging_is_allowed(settings, "automatic")
+    assert tagging_is_allowed(settings, "manual")
+    settings["auto_tag"] = False
+    assert not tagging_is_allowed(settings, "automatic")
+
+
+def test_automatic_tagging_only_applies_to_initial_or_new_game_posts():
+    assert is_new_game_post(False, None, "portal2")
+    assert is_new_game_post(True, "portal2", "deep-rock-galactic")
+    assert not is_new_game_post(True, "portal2", "portal2")
+
+
+def test_room_size_rsvp_groups_and_milestones():
+    assert format_room_size(4, 0) == "4"
+    assert format_room_size(4, 6) == "4/6"
+    groups = rsvp_groups(
+        {"1": "join", "2": "maybe", "3": "not_coming", "broken": "join", "4": "bad"}
+    )
+    assert groups == {"join": [1], "maybe": [2], "not_coming": [3]}
+    milestone, consumed = consume_rsvp_milestones([], 27)
+    assert milestone == 25
+    assert consumed == [1, 5, 10, 25]
+    milestone, consumed = consume_rsvp_milestones(consumed, 9)
+    assert milestone is None
+    assert consumed == [1, 5, 10, 25]
+    milestone, consumed = consume_rsvp_milestones(consumed, 1000)
+    assert milestone == 1000
+    assert consumed == [1, 5, 10, 25, 50, 100, 200, 500, 1000]
+
+    state = default_room_state(42)
+    assert state["rsvp_identity"] is None
+    assert state["rsvp_responses"] == {}
+    assert state["rsvp_milestones"] == []
 
 
 def test_normalize_and_alias_matching():
