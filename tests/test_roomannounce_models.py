@@ -1,4 +1,5 @@
 from roomannounce.models import (
+    announcement_destination_id,
     automatic_metadata_ready,
     default_room_state,
     game_names_match,
@@ -7,6 +8,17 @@ from roomannounce.models import (
     preview_should_be_visible,
     resolve_fields,
 )
+
+
+def test_announcement_destination_prefers_room_source_mapping_then_default():
+    settings = {
+        "announcement_channel_id": 10,
+        "announcement_channels": {"20": 30},
+    }
+    assert announcement_destination_id({"source_channel_id": 20}, settings) == 30
+    assert announcement_destination_id({"source_channel_id": 21}, settings) == 10
+    assert announcement_destination_id({}, settings) == 10
+    assert announcement_destination_id({"source_channel_id": 21}, {}) is None
 
 
 def test_normalize_and_alias_matching():

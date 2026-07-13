@@ -12,6 +12,7 @@ from .models import (
     MISSING_GAME,
     MISSING_PARTY,
     MISSING_ROLE,
+    announcement_destination_id,
     automatic_metadata_ready,
     default_room_state,
     game_names_match,
@@ -44,6 +45,7 @@ class RoomAnnounce(commands.Cog):
         self.config = Config.get_conf(self, identifier=300620201744, force_registration=True)
         self.config.register_guild(
             announcement_channel_id=None,
+            announcement_channels={},
             auto_announce=False,
             auto_tag=False,
             igdb_enabled=False,
@@ -84,6 +86,7 @@ class RoomAnnounce(commands.Cog):
                     channel,
                     room.get("owner_id"),
                     selected_preset=room.get("selected_preset"),
+                    source_channel_id=room.get("source_channel_id"),
                     restore=True,
                 )
 
@@ -145,6 +148,7 @@ class RoomAnnounce(commands.Cog):
         channel: discord.VoiceChannel,
         owner_id: Optional[int],
         selected_preset: Optional[str] = None,
+        source_channel_id: Optional[int] = None,
         restore: bool = False,
     ) -> None:
         if not owner_id:
@@ -153,6 +157,8 @@ class RoomAnnounce(commands.Cog):
         if not state.get("owner_id"):
             state = default_room_state(owner_id)
         state["owner_id"] = owner_id
+        if source_channel_id is not None:
+            state["source_channel_id"] = source_channel_id
         if selected_preset is not None:
             state["selected_preset"] = selected_preset
 
@@ -458,10 +464,15 @@ class RoomAnnounce(commands.Cog):
         if not has_game_context(state.get("resolved") or {}):
             raise RuntimeError("No game is configured yet.")
         guild_settings = await self.config.guild(channel.guild).all()
-        destination_id = guild_settings.get("announcement_channel_id")
+        destination_id = announcement_destination_id(state, guild_settings)
         destination = channel.guild.get_channel(destination_id) if destination_id else None
         if not isinstance(destination, discord.TextChannel):
-            raise RuntimeError("The announcement channel is not configured or no longer exists.")
+            source_id = state.get("source_channel_id")
+            source = channel.guild.get_channel(source_id) if source_id else None
+            source_name = source.mention if source else "this room's Join-to-Create channel"
+            raise RuntimeError(
+                f"No announcement channel is configured for {source_name}, and no default exists."
+            )
 
         role_id = (state.get("resolved") or {}).get("role_id")
         role = channel.guild.get_role(role_id) if role_id else None
@@ -781,7 +792,13 @@ class RoomAnnounce(commands.Cog):
 
     @commands.Cog.listener()
     async def on_roomer_room_created(self, channel: discord.VoiceChannel, owner_id: int):
-        await self.ensure_room(channel, owner_id)
+        roomer = self._roomer()
+        room = await roomer.get_room(channel.id) if roomer else {}
+        await self.ensure_room(
+            channel,
+            owner_id,
+            source_channel_id=(room or {}).get("source_channel_id"),
+        )
 
     @commands.Cog.listener()
     async def on_roomer_owner_changed(self, channel: discord.VoiceChannel, owner_id: int):
@@ -886,29 +903,112 @@ class RoomAnnounce(commands.Cog):
                     with contextlib.suppress(RuntimeError, discord.HTTPException):
                         await self.publish_room(channel)
 
-    @roomannounce_group.command(name="channel", description="Set the public announcement channel.")
+    @roomannounce_group.command(
+        name="channel", description="Set a default or Join-to-Create announcement channel."
+    )
+    @app_commands.describe(
+        channel="Announcement destination; omit to clear the selected mapping",
+        join_to_create="Join-to-Create source; omit to configure the default destination",
+    )
     @app_commands.default_permissions(administrator=True)
     async def channel_command(
-        self, interaction: discord.Interaction, channel: Optional[discord.TextChannel]
+        self,
+        interaction: discord.Interaction,
+        channel: Optional[discord.TextChannel] = None,
+        join_to_create: Optional[discord.VoiceChannel] = None,
     ):
         await interaction.response.defer(ephemeral=True)
+        roomer = self._roomer()
+        if join_to_create is not None:
+            configured_sources = (
+                await roomer.config.guild(interaction.guild).auto_channels() if roomer else []
+            )
+            if join_to_create.id not in configured_sources:
+                return await interaction.followup.send(
+                    "❌ That voice channel is not configured as a Roomer Join-to-Create channel.",
+                    ephemeral=True,
+                )
         rooms_to_republish = []
         for room in self._active_guild_rooms(interaction.guild):
             state = await self.get_state(room.id)
             if state.get("public_message_id"):
                 rooms_to_republish.append(room)
                 await self._delete_public(room, state, suppress=False)
-        await self.config.guild(interaction.guild).announcement_channel_id.set(
-            channel.id if channel else None
-        )
-        if channel:
-            for room in rooms_to_republish:
-                with contextlib.suppress(RuntimeError, discord.HTTPException):
-                    await self.publish_room(room)
+        if join_to_create is None:
+            await self.config.guild(interaction.guild).announcement_channel_id.set(
+                channel.id if channel else None
+            )
+            target = "Default announcement channel"
+        else:
+            async with self.config.guild(interaction.guild).announcement_channels() as mappings:
+                if channel:
+                    mappings[str(join_to_create.id)] = channel.id
+                else:
+                    mappings.pop(str(join_to_create.id), None)
+            target = f"Announcement channel for {join_to_create.mention}"
+        for room in rooms_to_republish:
+            with contextlib.suppress(RuntimeError, discord.HTTPException):
+                await self.publish_room(room)
         await interaction.followup.send(
-            f"✅ Announcement channel {'set to ' + channel.mention if channel else 'cleared'}.",
+            f"✅ {target} {'set to ' + channel.mention if channel else 'cleared'}.",
             ephemeral=True,
         )
+
+    @roomannounce_group.command(
+        name="channels", description="List announcement destinations by Join-to-Create channel."
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def list_channels(self, interaction: discord.Interaction):
+        data = await self.config.guild(interaction.guild).all()
+        default = interaction.guild.get_channel(data.get("announcement_channel_id"))
+        roomer = self._roomer()
+        configured_sources = (
+            await roomer.config.guild(interaction.guild).auto_channels() if roomer else []
+        )
+        mappings = data.get("announcement_channels") or {}
+        mapped_source_ids = []
+        for key in mappings:
+            with contextlib.suppress(TypeError, ValueError):
+                mapped_source_ids.append(int(key))
+        source_ids = list(dict.fromkeys([*configured_sources, *mapped_source_ids]))
+        configured_source_ids = set(configured_sources)
+        lines = []
+        for source_id in source_ids:
+            source = interaction.guild.get_channel(source_id)
+            destination = interaction.guild.get_channel(mappings.get(str(source_id)))
+            source_label = source.mention if source else f"Deleted source (`{source_id}`)"
+            if source_id not in configured_source_ids:
+                source_label += " *(not configured in Roomer)*"
+            if destination:
+                destination_label = destination.mention
+            elif str(source_id) in mappings:
+                destination_label = "Deleted destination"
+            elif default:
+                destination_label = f"{default.mention} *(default)*"
+            else:
+                destination_label = "Not configured"
+            lines.append(f"• {source_label} → {destination_label}")
+        pages = [lines[index : index + 20] for index in range(0, len(lines), 20)] or [[]]
+        for index, page in enumerate(pages):
+            default_line = (
+                f"Default: {default.mention if default else 'Not configured'}\n\n"
+                if index == 0
+                else ""
+            )
+            embed = discord.Embed(
+                title=(
+                    "RoomAnnounce Channel Destinations"
+                    if index == 0
+                    else f"RoomAnnounce Channel Destinations — Page {index + 1}"
+                ),
+                description=default_line
+                + ("\n".join(page) or "No Join-to-Create channels are configured."),
+                color=discord.Color.blurple(),
+            )
+            if index == 0:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
     @roomannounce_group.command(name="autoannounce", description="Toggle automatic publishing.")
     @app_commands.default_permissions(administrator=True)
@@ -1040,7 +1140,13 @@ class RoomAnnounce(commands.Cog):
         channel = interaction.guild.get_channel(data["announcement_channel_id"])
         roles = [interaction.guild.get_role(role_id) for role_id in data["allowed_role_ids"]]
         embed = discord.Embed(title="RoomAnnounce Settings", color=discord.Color.blurple())
-        embed.add_field(name="Channel", value=channel.mention if channel else "Not configured")
+        embed.add_field(
+            name="Default channel", value=channel.mention if channel else "Not configured"
+        )
+        embed.add_field(
+            name="Join-to-Create mappings",
+            value=str(len(data.get("announcement_channels") or {})),
+        )
         embed.add_field(name="Automatic announce", value=str(data["auto_announce"]))
         embed.add_field(name="Automatic tag", value=str(data["auto_tag"]))
         igdb_credentials = bool(

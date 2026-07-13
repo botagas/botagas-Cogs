@@ -102,6 +102,7 @@ class Roomer(red_commands.Cog):
         owner_id: int,
         control_message_id: Optional[int] = None,
         selected_preset: Optional[str] = None,
+        source_channel_id: Optional[int] = None,
     ) -> None:
         async with self.config.guild(channel.guild).rooms() as rooms:
             current = rooms.get(str(channel.id), {})
@@ -114,6 +115,11 @@ class Roomer(red_commands.Cog):
                         else current.get("control_message_id")
                     ),
                     "selected_preset": selected_preset,
+                    "source_channel_id": (
+                        source_channel_id
+                        if source_channel_id is not None
+                        else current.get("source_channel_id")
+                    ),
                 }
             )
             rooms[str(channel.id)] = current
@@ -246,6 +252,45 @@ class Roomer(red_commands.Cog):
             )
         else:
             await interaction.response.send_message("That channel wasn't configured.")
+
+    @roomer_group.command(name="channels", description="List join-to-create channels.")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def list_channels(self, interaction: discord.Interaction):
+        """List all configured join-to-create channels."""
+        settings = await self.config.guild(interaction.guild).all()
+        channel_ids = settings.get("auto_channels", [])
+        lines = []
+        for channel_id in channel_ids:
+            channel = interaction.guild.get_channel(channel_id)
+            lines.append(
+                f"• {channel.mention} (`{channel_id}`)"
+                if isinstance(channel, discord.VoiceChannel)
+                else f"• Deleted or unavailable channel (`{channel_id}`)"
+            )
+        pages = [lines[index : index + 20] for index in range(0, len(lines), 20)] or [[]]
+        for index, page in enumerate(pages):
+            embed = discord.Embed(
+                title=(
+                    "Roomer Join-to-Create Channels"
+                    if index == 0
+                    else f"Roomer Join-to-Create Channels — Page {index + 1}"
+                ),
+                description=(
+                    f"Room creation is **{'enabled' if settings.get('auto_enabled') else 'disabled'}**."
+                    if index == 0
+                    else None
+                ),
+                color=discord.Color.blurple(),
+            )
+            embed.add_field(
+                name=f"Configured channels ({len(channel_ids)})",
+                value="\n".join(page) or "None configured",
+                inline=False,
+            )
+            if index == 0:
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
 
     @roomer_group.command(name="preset", description="Manage voice channel presets.")
     @app_commands.describe(
@@ -505,7 +550,12 @@ class Roomer(red_commands.Cog):
                 ),
                 view=view,
             )
-            await self._save_room(new_channel, member.id, control_message.id)
+            await self._save_room(
+                new_channel,
+                member.id,
+                control_message.id,
+                source_channel_id=after.channel.id,
+            )
             self.bot.dispatch("roomer_room_created", new_channel, member.id)
         except Exception:
             log.exception("Failed to initialize controls for room %s", new_channel.id)

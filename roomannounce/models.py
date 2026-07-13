@@ -23,9 +23,22 @@ def preset_game_name(preset: Dict[str, Any]) -> str:
     return preset.get("game_name") or preset.get("title") or ""
 
 
+def announcement_destination_id(
+    state: Dict[str, Any], guild_settings: Dict[str, Any]
+) -> Optional[int]:
+    source_channel_id = state.get("source_channel_id")
+    destinations = guild_settings.get("announcement_channels") or {}
+    if source_channel_id is not None:
+        destination_id = destinations.get(str(source_channel_id))
+        if destination_id:
+            return destination_id
+    return guild_settings.get("announcement_channel_id")
+
+
 def default_room_state(owner_id: int) -> Dict[str, Any]:
     return {
         "owner_id": owner_id,
+        "source_channel_id": None,
         "control_message_id": None,
         "preview_message_id": None,
         "preview_mode": "auto",

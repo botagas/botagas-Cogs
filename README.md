@@ -48,6 +48,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
 #### Slash Commands:
 - `/roomer add <channel>` - Set `Join to Create` channel
 - `/roomer remove <channel>` - Remove `Join to Create` channel
+- `/roomer channels` - List configured `Join to Create` channels
 - `/roomer enable` - Enable automatic temporary channel creation
 - `/roomer disable` - Disable automatic temporary channel creation
 - `/roomer preset` — Manage game presets (`add`, `edit`, `delete`, `list`)
@@ -128,7 +129,8 @@ SteamGridDB as an optional artwork fallback.
 
 - Install and load `roomer` before `roomannounce`.
 - Enable Discord's **Guild Presences** privileged intent for automatic game detection.
-- `/roomannounce channel <channel>` — Set the public announcement destination.
+- `/roomannounce channel [channel] [join_to_create]` — Set or clear the default destination or a Join-to-Create-specific destination.
+- `/roomannounce channels` — List Join-to-Create channels and their effective announcement destinations.
 - `/roomannounce autoannounce <enabled>` — Toggle automatic publishing (disabled by default).
 - `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
 - `/roomannounce provider <provider> <enabled>` — Enable IGDB or SteamGridDB per server.
