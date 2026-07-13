@@ -19,6 +19,10 @@ def game_names_match(name: Optional[str], candidates: Iterable[Optional[str]]) -
     )
 
 
+def preset_game_name(preset: Dict[str, Any]) -> str:
+    return preset.get("game_name") or preset.get("title") or ""
+
+
 def default_room_state(owner_id: int) -> Dict[str, Any]:
     return {
         "owner_id": owner_id,
@@ -52,7 +56,7 @@ def resolve_fields(
     manual: Dict[str, Any],
     selected_role_id: Optional[int],
 ) -> Dict[str, Any]:
-    preset_game = preset.get("game_name") or ""
+    preset_game = preset_game_name(preset)
     detected_game = detected.get("name") or ""
     preset_aliases = preset.get("game_aliases") or []
     detected_matches_preset = bool(preset_game) and game_names_match(
@@ -139,7 +143,7 @@ def automatic_metadata_ready(
 ) -> bool:
     if not has_game_context(resolved):
         return False
-    if preset.get("game_name"):
+    if preset_game_name(preset):
         return True
     if provider.get("name") and game_names_match(
         provider.get("name"), [resolved.get("game_name")]

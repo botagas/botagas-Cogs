@@ -140,9 +140,24 @@ class Roomer(red_commands.Cog):
             preset_name,
         )
         presets = await self.config.guild(channel.guild).presets()
-        self.bot.dispatch(
-            "roomer_preset_applied", channel, preset_name, presets.get(preset_name, {})
+        preset = presets.get(preset_name, {})
+        announcer = self.bot.get_cog("RoomAnnounce")
+        if announcer is not None:
+            await announcer.sync_room_preset(channel, preset_name, preset)
+        self.bot.dispatch("roomer_preset_applied", channel, preset_name, preset)
+
+    async def apply_room_preset(self, channel: discord.VoiceChannel, preset_name: str) -> dict:
+        presets = await self.config.guild(channel.guild).presets()
+        preset = presets.get(preset_name)
+        if preset is None:
+            raise ValueError(f"Preset `{preset_name}` does not exist.")
+        await channel.edit(
+            name=preset["title"],
+            status=preset.get("status") or None,
+            user_limit=min(preset.get("limit") or 0, 99),
         )
+        await self.set_room_preset(channel, preset_name)
+        return preset
 
     async def red_delete_data_for_user(self, **kwargs):
         user_id = kwargs.get("user_id")
@@ -649,20 +664,14 @@ class ApplyPresetSelect(discord.ui.Select):
         if not preset:
             await interaction.response.send_message("❌ Preset not found.", ephemeral=True)
             return
+        await interaction.response.defer(ephemeral=True)
         try:
-            await self.channel.edit(
-                name=preset["title"],
-                status=preset.get("status", None),
-                user_limit=min(preset.get("limit") or 0, 99),
-            )
-            await self.cog.set_room_preset(self.channel, selected)
-            await interaction.response.send_message(
+            await self.cog.apply_room_preset(self.channel, selected)
+            await interaction.followup.send(
                 f"✅ Applied preset **{selected}** to the channel.", ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Failed to apply preset: {e}", ephemeral=True
-            )
+            await interaction.followup.send(f"❌ Failed to apply preset: {e}", ephemeral=True)
 
 
 class ChannelControlView(discord.ui.View):

@@ -3,6 +3,7 @@ from roomannounce.models import (
     default_room_state,
     game_names_match,
     normalize_game_name,
+    preset_game_name,
     preview_should_be_visible,
     resolve_fields,
 )
@@ -38,6 +39,14 @@ def test_preset_identity_wins_and_matching_presence_enriches_it():
     assert resolved["party"] == "2/2"
     assert resolved["role_id"] == 42
     assert not resolved["detected_conflict"]
+
+
+def test_legacy_roomer_title_is_a_game_context():
+    preset = {"title": "Deep Rock Galactic", "status": "Hazard 5", "limit": 4}
+    assert preset_game_name(preset) == "Deep Rock Galactic"
+    resolved = resolve_fields("drg", preset, {}, {}, {}, None)
+    assert resolved["game_name"] == "Deep Rock Galactic"
+    assert automatic_metadata_ready(resolved, preset, {}, {})
 
 
 def test_conflicting_presence_does_not_replace_preset():

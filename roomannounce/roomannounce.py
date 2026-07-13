@@ -17,6 +17,7 @@ from .models import (
     game_names_match,
     has_game_context,
     normalize_game_name,
+    preset_game_name,
     preview_should_be_visible,
     resolve_fields,
 )
@@ -256,11 +257,11 @@ class RoomAnnounce(commands.Cog):
         manual = state.get("manual_overrides") or {}
         if state.get("source_choice") == "manual":
             initial_game = (
-                manual.get("game_name") or preset.get("game_name") or detected.get("name")
+                manual.get("game_name") or preset_game_name(preset) or detected.get("name")
             )
         else:
             initial_game = (
-                preset.get("game_name") or detected.get("name") or manual.get("game_name")
+                preset_game_name(preset) or detected.get("name") or manual.get("game_name")
             )
         provider = state.get("provider") or {}
         if initial_game and not game_names_match(provider.get("name"), [initial_game]):
@@ -272,7 +273,7 @@ class RoomAnnounce(commands.Cog):
             for candidate in presets.values():
                 if game_names_match(
                     detected["name"],
-                    [candidate.get("game_name"), *(candidate.get("game_aliases") or [])],
+                    [preset_game_name(candidate), *(candidate.get("game_aliases") or [])],
                 ):
                     mapped_role_id = candidate.get("announcement_role_id")
                     break
@@ -550,11 +551,16 @@ class RoomAnnounce(commands.Cog):
         roomer = self._roomer()
         if selected.startswith("preset:"):
             preset_name = selected.split(":", 1)[1]
-            state["selected_preset"] = preset_name
-            state["source_choice"] = "preset"
-            await self._save_state(channel_id, state)
             if roomer:
-                await roomer.set_room_preset(channel, preset_name)
+                try:
+                    await roomer.apply_room_preset(channel, preset_name)
+                except (ValueError, discord.HTTPException) as exc:
+                    return await interaction.followup.send(f"❌ {exc}", ephemeral=True)
+            else:
+                state["selected_preset"] = preset_name
+                state["source_choice"] = "preset"
+                state.setdefault("manual_overrides", {}).pop("game_name", None)
+                await self._save_state(channel_id, state)
         elif selected == "detected":
             state["selected_preset"] = None
             state["source_choice"] = "detected"
@@ -758,6 +764,17 @@ class RoomAnnounce(commands.Cog):
         preset_name: Optional[str],
         preset: Dict[str, Any],
     ):
+        state = await self.get_state(channel.id)
+        if state.get("selected_preset") == preset_name:
+            return
+        await self.sync_room_preset(channel, preset_name, preset)
+
+    async def sync_room_preset(
+        self,
+        channel: discord.VoiceChannel,
+        preset_name: Optional[str],
+        preset: Dict[str, Any],
+    ) -> None:
         state = await self.get_state(channel.id)
         state["selected_preset"] = preset_name
         if preset_name:
