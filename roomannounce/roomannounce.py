@@ -345,7 +345,12 @@ class RoomAnnounce(commands.Cog):
         resolved = state.get("resolved") or {}
         game_name = resolved.get("game_name") or MISSING_GAME
         title = f"🎮 {game_name}" if public else "🎮 Room Announcement Preview"
-        embed = discord.Embed(title=title, color=discord.Color.blurple())
+        provider_url = resolved.get("provider_url") or ""
+        embed = discord.Embed(
+            title=title,
+            url=provider_url if provider_url.startswith(("https://", "http://")) else None,
+            color=discord.Color.blurple(),
+        )
         if public:
             if resolved.get("description"):
                 embed.description = resolved["description"][:2000]
@@ -362,7 +367,7 @@ class RoomAnnounce(commands.Cog):
         if resolved.get("party") or not public:
             embed.add_field(name="Game party", value=resolved.get("party") or MISSING_PARTY)
         voice_limit = channel.user_limit or "unlimited"
-        embed.add_field(name="Voice room", value=f"{len(channel.members)}/{voice_limit}")
+        embed.add_field(name="Room size", value=f"{len(channel.members)}/{voice_limit}")
         role = channel.guild.get_role(resolved.get("role_id")) if resolved.get("role_id") else None
         if role or not public:
             embed.add_field(name="Announcement role", value=role.mention if role else MISSING_ROLE)
@@ -394,10 +399,8 @@ class RoomAnnounce(commands.Cog):
                     value="\n".join(f"• {item}" for item in diagnostics)[:1024],
                     inline=False,
                 )
-        if resolved.get("provider_url"):
-            embed.add_field(name="Game information", value=resolved["provider_url"], inline=False)
         if resolved.get("image_url", "").startswith("https://"):
-            embed.set_image(url=resolved["image_url"])
+            embed.set_thumbnail(url=resolved["image_url"])
         owner = channel.guild.get_member(state.get("owner_id"))
         if owner:
             embed.set_footer(text=f"Room owner: {owner.display_name}")
