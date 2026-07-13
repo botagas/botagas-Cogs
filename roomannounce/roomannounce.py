@@ -195,6 +195,11 @@ class RoomAnnounce(commands.Cog):
     async def _save_state(self, channel_id: int, state: Dict[str, Any]) -> None:
         await self.config.channel_from_id(channel_id).set(state)
 
+    @staticmethod
+    def _room_access_state(channel: discord.VoiceChannel) -> tuple[bool, bool]:
+        overwrite = channel.overwrites_for(channel.guild.default_role)
+        return overwrite.view_channel is False, overwrite.connect is False
+
     async def check_owner(self, interaction: discord.Interaction, channel_id: int) -> bool:
         channel = interaction.guild.get_channel(channel_id) if interaction.guild else None
         roomer = self._roomer()
@@ -261,10 +266,12 @@ class RoomAnnounce(commands.Cog):
             self.bot.add_view(view, message_id=control_message.id)
         settings = await self.config.guild(channel.guild).all()
         if restore and settings.get("rsvp_enabled") and state.get("public_message_id"):
-            self.bot.add_view(
-                RSVPView(self, channel.guild.id, channel.id),
-                message_id=state["public_message_id"],
-            )
+            hidden, locked = self._room_access_state(channel)
+            if not hidden:
+                self.bot.add_view(
+                    RSVPView(self, channel.guild.id, channel.id, locked=locked),
+                    message_id=state["public_message_id"],
+                )
         await self._save_state(channel.id, state)
         owner = channel.guild.get_member(owner_id)
         if owner:
@@ -355,6 +362,9 @@ class RoomAnnounce(commands.Cog):
 
     async def resolve_room(self, channel: discord.VoiceChannel) -> None:
         state = await self.get_state(channel.id)
+        hidden, _locked = self._room_access_state(channel)
+        if not hidden and state.get("last_error") == "Hidden rooms cannot be publicly announced.":
+            state["last_error"] = None
         preset_name, preset, presets = await self._preset_for_state(channel, state)
         detected = state.get("detected") or {}
         settings = await self.config.guild(channel.guild).all()
@@ -396,7 +406,9 @@ class RoomAnnounce(commands.Cog):
             mapped_role_id,
         )
         old_identity = state.get("identity")
-        had_public_announcement = bool(state.get("public_message_id"))
+        had_public_announcement = bool(
+            state.get("public_message_id") or state.get("hidden_public_suspended")
+        )
         new_identity = resolved.get("identity")
         if old_identity and new_identity != old_identity:
             await self._delete_public(channel, state, suppress=False)
@@ -413,6 +425,12 @@ class RoomAnnounce(commands.Cog):
         await self._save_state(channel.id, state)
         await self.ensure_preview(channel)
         await self.refresh_control(channel)
+
+        if hidden:
+            if state.get("public_message_id"):
+                state["hidden_public_suspended"] = True
+                await self._delete_public(channel, state, suppress=False)
+            return
 
         should_publish = (had_public_announcement or settings.get("auto_announce")) and (
             state.get("announcements_enabled")
@@ -500,7 +518,14 @@ class RoomAnnounce(commands.Cog):
         if resolved.get("note"):
             embed.add_field(name="Note", value=resolved["note"][:1024], inline=False)
         if not public:
-            if state.get("last_error"):
+            hidden, locked = self._room_access_state(channel)
+            if hidden:
+                status = "Hidden — public publishing is suppressed"
+            elif locked and state.get("public_message_id"):
+                status = "Published — room locked"
+            elif locked:
+                status = "Ready — room locked; tagging is suppressed"
+            elif state.get("last_error"):
                 status = f"Error — {state['last_error']}"
             elif not state.get("announcements_enabled"):
                 status = "Disabled for this room"
@@ -545,6 +570,12 @@ class RoomAnnounce(commands.Cog):
             embed.add_field(
                 name="Not Coming",
                 value=self._rsvp_field_value(channel.guild, groups["not_coming"], show_names),
+            )
+        if public and self._room_access_state(channel)[1]:
+            embed.add_field(
+                name="Room access",
+                value="🔒 Locked — connection and new role pings are currently disabled.",
+                inline=False,
             )
         if resolved.get("image_url", "").startswith("https://"):
             embed.set_thumbnail(url=resolved["image_url"])
@@ -602,6 +633,12 @@ class RoomAnnounce(commands.Cog):
         state = await self.get_state(channel.id)
         if not state.get("announcements_enabled"):
             raise RuntimeError("Announcements are disabled for this room.")
+        hidden, locked = self._room_access_state(channel)
+        if hidden:
+            if state.get("public_message_id"):
+                state["hidden_public_suspended"] = True
+                await self._delete_public(channel, state, suppress=False)
+            raise RuntimeError("Hidden rooms cannot be publicly announced.")
         if not has_game_context(state.get("resolved") or {}):
             raise RuntimeError("No game is configured yet.")
         guild_settings = await self.config.guild(channel.guild).all()
@@ -618,7 +655,7 @@ class RoomAnnounce(commands.Cog):
         role_id = (state.get("resolved") or {}).get("role_id")
         role = channel.guild.get_role(role_id) if role_id else None
         tag_requested = tag_source in {"automatic", "manual"}
-        tag_allowed = tagging_is_allowed(guild_settings, tag_source)
+        tag_allowed = tagging_is_allowed(guild_settings, tag_source) and not locked
         should_tag = bool(
             tag_requested
             and tag_allowed
@@ -649,7 +686,7 @@ class RoomAnnounce(commands.Cog):
 
         embed = self._build_embed(channel, state, public=True, guild_settings=guild_settings)
         view = (
-            RSVPView(self, channel.guild.id, channel.id)
+            RSVPView(self, channel.guild.id, channel.id, locked=locked)
             if guild_settings.get("rsvp_enabled")
             else None
         )
@@ -676,6 +713,7 @@ class RoomAnnounce(commands.Cog):
             )
         state["public_message_id"] = message.id
         state["public_channel_id"] = destination.id
+        state["hidden_public_suspended"] = False
         state["suppressed_identity"] = None
         state["last_error"] = None
         if should_tag:
@@ -700,6 +738,7 @@ class RoomAnnounce(commands.Cog):
         state["public_channel_id"] = None
         if suppress:
             state["suppressed_identity"] = state.get("identity")
+            state["hidden_public_suspended"] = False
             state["rsvp_responses"] = {}
             state["rsvp_milestones"] = []
         await self._save_state(channel.id, state)
@@ -980,11 +1019,17 @@ class RoomAnnounce(commands.Cog):
             and has_game_context(state.get("resolved", {}))
         ):
             settings = await self.config.guild(interaction.guild).all()
-            manual_tag_allowed = tagging_is_allowed(settings, "manual")
+            _hidden, locked = self._room_access_state(channel)
+            manual_tag_allowed = tagging_is_allowed(settings, "manual") and not locked
             try:
                 await self.publish_room(channel, tag_source="manual")
             except RuntimeError as exc:
                 return await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
+            if locked:
+                return await interaction.followup.send(
+                    "✅ Announcement role updated, but locked rooms cannot send new role pings.",
+                    ephemeral=True,
+                )
             if not manual_tag_allowed:
                 return await interaction.followup.send(
                     "✅ Announcement role updated, but forced active hours currently prevent role tagging.",
@@ -1035,6 +1080,7 @@ class RoomAnnounce(commands.Cog):
         if not enabled:
             await self._delete_public(channel, state, suppress=False)
             state = await self.get_state(channel_id)
+            state["hidden_public_suspended"] = False
             state["rsvp_responses"] = {}
             state["rsvp_milestones"] = []
         await self._save_state(channel_id, state)
@@ -1134,6 +1180,31 @@ class RoomAnnounce(commands.Cog):
     @commands.Cog.listener()
     async def on_roomer_room_deleting(self, channel: discord.VoiceChannel):
         await self.cleanup_room(channel)
+
+    async def _handle_room_access_change(self, channel: discord.VoiceChannel) -> None:
+        hidden, _locked = self._room_access_state(channel)
+        state = await self.get_state(channel.id)
+        if hidden:
+            if state.get("public_message_id"):
+                state["hidden_public_suspended"] = True
+                await self._delete_public(channel, state, suppress=False)
+            await self.ensure_preview(channel)
+            await self.refresh_control(channel)
+            return
+        await self.resolve_room(channel)
+
+    @commands.Cog.listener()
+    async def on_guild_channel_update(
+        self, before: discord.abc.GuildChannel, after: discord.abc.GuildChannel
+    ) -> None:
+        if not isinstance(after, discord.VoiceChannel):
+            return
+        roomer = self._roomer()
+        if roomer is None or after.id not in roomer.channel_owners:
+            return
+        if self._room_access_state(before) == self._room_access_state(after):
+            return
+        await self._handle_room_access_change(after)
 
     @commands.Cog.listener()
     async def on_presence_update(self, before: discord.Member, after: discord.Member):

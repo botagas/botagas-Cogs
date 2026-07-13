@@ -129,15 +129,16 @@ class MetadataChoiceView(discord.ui.View):
 
 
 class RSVPView(discord.ui.View):
-    def __init__(self, cog: Any, guild_id: int, channel_id: int):
+    def __init__(self, cog: Any, guild_id: int, channel_id: int, locked: bool = False):
         super().__init__(timeout=None)
         self.cog = cog
         self.channel_id = channel_id
         self.add_item(
             discord.ui.Button(
-                label="Connect",
+                label="Locked" if locked else "Connect",
                 style=discord.ButtonStyle.link,
                 url=f"https://discord.com/channels/{guild_id}/{channel_id}",
+                disabled=locked,
             )
         )
 

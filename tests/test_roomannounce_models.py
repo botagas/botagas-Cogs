@@ -142,6 +142,7 @@ def test_room_size_rsvp_groups_and_milestones():
     assert state["rsvp_identity"] is None
     assert state["rsvp_responses"] == {}
     assert state["rsvp_milestones"] == []
+    assert state["hidden_public_suspended"] is False
 
 
 def test_normalize_and_alias_matching():

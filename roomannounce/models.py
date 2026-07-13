@@ -190,6 +190,7 @@ def default_room_state(owner_id: int) -> Dict[str, Any]:
         "preview_mode": "auto",
         "public_message_id": None,
         "public_channel_id": None,
+        "hidden_public_suspended": False,
         "announcements_enabled": True,
         "selected_preset": None,
         "source_choice": "auto",

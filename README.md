@@ -166,6 +166,8 @@ SteamGridDB artwork requires its own API key:
 - Active-hour weekdays are comma-separated names such as `Mon,Wed,Fri`; overnight windows use the weekday on which the window starts.
 - Optional RSVP buttons track Join, Maybe, and Not Coming responses and notify room owners at configured participation milestones.
 - RSVP summaries start on their own embed row, and a separate **Connect** link opens the advertised room in Discord.
+- Hiding a Roomer channel suspends its public post and role pings while retaining RSVP data; unhiding restores the same announcement session.
+- Locked rooms remain advertised, but show a disabled **Locked** control and cannot send new role pings until unlocked.
 - Unlimited voice channels show only their current room size; limited channels show current and maximum size.
 
 ---

@@ -3,6 +3,7 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from discord import app_commands
 
 from roomannounce.roomannounce import RoomAnnounce
@@ -62,6 +63,7 @@ class FakeMember:
 class FakeGuild:
     def __init__(self, members=None):
         self.id = 456
+        self.default_role = object()
         self.members = {member.id: member for member in members or []}
 
     def get_member(self, user_id):
@@ -75,6 +77,10 @@ class FakeChannel:
         self.members = [object()] * member_count
         self.user_limit = user_limit
         self.mention = "<#123>"
+        self.default_overwrite = SimpleNamespace(view_channel=None, connect=None)
+
+    def overwrites_for(self, role):
+        return self.default_overwrite
 
 
 def test_activehours_and_rsvp_subcommands_are_registered():
@@ -193,6 +199,13 @@ def test_rsvp_view_is_persistent_and_participant_lists_paginate():
     link = next(item for item in view.children if item.custom_id is None)
     assert link.label == "Connect"
     assert link.url == "https://discord.com/channels/456/123"
+    assert link.disabled is False
+
+    locked_view = RSVPView(object(), 456, 123, locked=True)
+    locked_link = next(item for item in locked_view.children if item.custom_id is None)
+    assert locked_link.label == "Locked"
+    assert locked_link.disabled is True
+    assert locked_view.is_persistent()
 
     members = [FakeMember(index, f"Player {index} " + "x" * 80) for index in range(1, 101)]
     guild = FakeGuild(members)
@@ -276,3 +289,80 @@ def test_rsvp_view_rejects_bots_immediately():
     interaction = SimpleNamespace(user=SimpleNamespace(bot=True), response=FakeResponse())
     assert asyncio.run(view.interaction_check(interaction)) is False
     assert interaction.response.sent[0][0] == "Bots cannot RSVP."
+
+
+def test_locked_public_embed_reports_access_restriction():
+    guild = FakeGuild()
+    channel = FakeChannel(guild)
+    channel.default_overwrite.connect = False
+    cog = object.__new__(RoomAnnounce)
+    embed = cog._build_embed(
+        channel,
+        {"resolved": {"game_name": "Portal 2"}},
+        public=True,
+        guild_settings={"rsvp_enabled": False},
+    )
+    fields = {field.name: field.value for field in embed.fields}
+    assert fields["Room access"].startswith("🔒 Locked")
+
+
+def test_hidden_room_suspends_and_restores_public_announcement():
+    guild = FakeGuild()
+    channel = FakeChannel(guild)
+    channel.default_overwrite.view_channel = False
+    state = {
+        "public_message_id": 99,
+        "public_channel_id": 88,
+        "hidden_public_suspended": False,
+    }
+    deleted = []
+    resolved = []
+
+    cog = object.__new__(RoomAnnounce)
+
+    async def get_state(channel_id):
+        return state
+
+    async def delete_public(current_channel, current_state, suppress):
+        deleted.append((current_state["hidden_public_suspended"], suppress))
+        current_state["public_message_id"] = None
+
+    async def no_op(channel):
+        return None
+
+    async def resolve(channel):
+        resolved.append(channel.id)
+
+    cog.get_state = get_state
+    cog._delete_public = delete_public
+    cog.ensure_preview = no_op
+    cog.refresh_control = no_op
+    cog.resolve_room = resolve
+
+    asyncio.run(cog._handle_room_access_change(channel))
+    assert deleted == [(True, False)]
+    assert state["hidden_public_suspended"] is True
+    assert resolved == []
+
+    channel.default_overwrite.view_channel = None
+    asyncio.run(cog._handle_room_access_change(channel))
+    assert resolved == [123]
+
+
+def test_hidden_room_rejects_manual_publication():
+    guild = FakeGuild()
+    channel = FakeChannel(guild)
+    channel.default_overwrite.view_channel = False
+    state = {
+        "announcements_enabled": True,
+        "public_message_id": None,
+        "resolved": {"game_name": "Portal 2"},
+    }
+    cog = object.__new__(RoomAnnounce)
+
+    async def get_state(channel_id):
+        return state
+
+    cog.get_state = get_state
+    with pytest.raises(RuntimeError, match="Hidden rooms"):
+        asyncio.run(cog.publish_room(channel))
