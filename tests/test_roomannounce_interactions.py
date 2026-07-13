@@ -61,6 +61,7 @@ class FakeMember:
 
 class FakeGuild:
     def __init__(self, members=None):
+        self.id = 456
         self.members = {member.id: member for member in members or []}
 
     def get_member(self, user_id):
@@ -69,6 +70,7 @@ class FakeGuild:
 
 class FakeChannel:
     def __init__(self, guild, member_count=4, user_limit=0):
+        self.id = 123
         self.guild = guild
         self.members = [object()] * member_count
         self.user_limit = user_limit
@@ -168,6 +170,9 @@ def test_public_embed_room_size_role_removal_and_rsvp_summary():
     assert "Announcement role" not in fields
     assert "+1 more" in fields["Joining"]
     assert fields["Maybe"].startswith("**1**")
+    field_names = [field.name for field in embed.fields]
+    assert field_names[-4:] == ["\u200b", "Joining", "Maybe", "Not Coming"]
+    assert all(field.inline for field in embed.fields[-3:])
 
     channel.user_limit = 6
     embed = cog._build_embed(channel, state, public=False)
@@ -177,14 +182,17 @@ def test_public_embed_room_size_role_removal_and_rsvp_summary():
 
 
 def test_rsvp_view_is_persistent_and_participant_lists_paginate():
-    view = RSVPView(object(), 123)
+    view = RSVPView(object(), 456, 123)
     assert view.timeout is None
-    assert {item.custom_id for item in view.children} == {
+    assert {item.custom_id for item in view.children if item.custom_id} == {
         "roomannounce:rsvp:join",
         "roomannounce:rsvp:maybe",
         "roomannounce:rsvp:not_coming",
         "roomannounce:rsvp:participants",
     }
+    link = next(item for item in view.children if item.custom_id is None)
+    assert link.label == "Join Voice"
+    assert link.url == "https://discord.com/channels/456/123"
 
     members = [FakeMember(index, f"Player {index} " + "x" * 80) for index in range(1, 101)]
     guild = FakeGuild(members)
@@ -264,7 +272,7 @@ def test_stale_rsvp_message_is_rejected_without_mutation():
 
 
 def test_rsvp_view_rejects_bots_immediately():
-    view = RSVPView(object(), 123)
+    view = RSVPView(object(), 456, 123)
     interaction = SimpleNamespace(user=SimpleNamespace(bot=True), response=FakeResponse())
     assert asyncio.run(view.interaction_check(interaction)) is False
     assert interaction.response.sent[0][0] == "Bots cannot RSVP."

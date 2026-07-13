@@ -261,7 +261,10 @@ class RoomAnnounce(commands.Cog):
             self.bot.add_view(view, message_id=control_message.id)
         settings = await self.config.guild(channel.guild).all()
         if restore and settings.get("rsvp_enabled") and state.get("public_message_id"):
-            self.bot.add_view(RSVPView(self, channel.id), message_id=state["public_message_id"])
+            self.bot.add_view(
+                RSVPView(self, channel.guild.id, channel.id),
+                message_id=state["public_message_id"],
+            )
         await self._save_state(channel.id, state)
         owner = channel.guild.get_member(owner_id)
         if owner:
@@ -524,6 +527,13 @@ class RoomAnnounce(commands.Cog):
         if public and (guild_settings or {}).get("rsvp_enabled"):
             groups = rsvp_groups(state.get("rsvp_responses") or {})
             show_names = bool(guild_settings.get("rsvp_show_names"))
+            inline_fields = 0
+            for field in reversed(embed.fields):
+                if not field.inline:
+                    break
+                inline_fields += 1
+            for _ in range((-inline_fields) % 3):
+                embed.add_field(name="\u200b", value="\u200b")
             embed.add_field(
                 name="Joining",
                 value=self._rsvp_field_value(channel.guild, groups["join"], show_names),
@@ -638,7 +648,11 @@ class RoomAnnounce(commands.Cog):
             state["public_message_id"] = None
 
         embed = self._build_embed(channel, state, public=True, guild_settings=guild_settings)
-        view = RSVPView(self, channel.id) if guild_settings.get("rsvp_enabled") else None
+        view = (
+            RSVPView(self, channel.guild.id, channel.id)
+            if guild_settings.get("rsvp_enabled")
+            else None
+        )
         if existing:
             await existing.edit(
                 content="",

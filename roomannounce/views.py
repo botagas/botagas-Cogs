@@ -129,10 +129,17 @@ class MetadataChoiceView(discord.ui.View):
 
 
 class RSVPView(discord.ui.View):
-    def __init__(self, cog: Any, channel_id: int):
+    def __init__(self, cog: Any, guild_id: int, channel_id: int):
         super().__init__(timeout=None)
         self.cog = cog
         self.channel_id = channel_id
+        self.add_item(
+            discord.ui.Button(
+                label="Join Voice",
+                style=discord.ButtonStyle.link,
+                url=f"https://discord.com/channels/{guild_id}/{channel_id}",
+            )
+        )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.bot:
