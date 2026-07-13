@@ -82,7 +82,7 @@ Roomer now supports **slash commands**, **interactive buttons**, **modals**, **s
   - Even if the user is now present in another temporary channel right after leaving the previous one, the old channel is deleted if empty
 - Reset syncs permissions with the **parent category**
 - Lock/Hide buttons reflect the **current state** of the `connect` / `view_channel` permissions
-- Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide buttons
+- Supports **dynamic label updates** on buttons after interaction for `Lock` and `Hide` buttons
 
 #### WIP:
 - Full automatic translation support using **Red’s translation system** via github actions
@@ -120,9 +120,9 @@ The new Captcha system uses **slash commands**, **modals**, and **UI buttons**. 
 
 ## 🙌 Credits
 
-- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha flow
-- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — Roomer base concept
-- Thanks to the [Red Discord Bot](https://discord.gg/red) community for testing and feedback
+- **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha logic
+- **[Dav-Cogs](https://github.com/Dav-Git/Dav-Cogs)** — for original Roomer logic
+- Thanks to the [Red Discord Bot](https://discord.gg/red) community for feedback and the Red Bot itself
 
 ---
 
