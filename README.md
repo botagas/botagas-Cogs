@@ -118,6 +118,46 @@ The new Captcha system uses **slash commands**, **modals**, and **UI buttons**. 
 
 ---
 
+### 📣 RoomAnnounce (Roomer companion)
+
+RoomAnnounce adds persistent game-announcement controls to every temporary Roomer channel.
+It can detect Discord Rich Presence, use Roomer presets, enrich games through IGDB, and use
+SteamGridDB as an optional artwork fallback.
+
+#### Setup
+
+- Install and load `roomer` before `roomannounce`.
+- Enable Discord's **Guild Presences** privileged intent for automatic game detection.
+- `/roomannounce channel <channel>` — Set the public announcement destination.
+- `/roomannounce autoannounce <enabled>` — Toggle automatic publishing (disabled by default).
+- `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
+- `/roomannounce provider <provider> <enabled>` — Enable IGDB or SteamGridDB per server.
+- `/roomannounce role <add|remove|list> [role]` — Manage roles owners may select.
+- `/roomannounce settings` — Show the current configuration.
+
+IGDB credentials are stored through Red's shared Twitch API tokens:
+
+```bash
+[p]set api twitch client_id,<id> client_secret,<secret>
+```
+
+SteamGridDB artwork requires its own API key:
+
+```bash
+[p]set api steamgriddb api_key,<key>
+```
+
+#### Behavior
+
+- Every Roomer channel gets a separate announcement control panel.
+- Local previews and public announcements are separate messages.
+- Owners can edit detected data, choose a preset, select an approved role, or enter a game manually.
+- Announcements can be disabled for the entire lifetime of an individual room.
+- Missing roles never result in an unintended mention; the owner is warned in the voice channel.
+- Public announcements and stored state are cleaned up when the Roomer channel is deleted.
+
+---
+
 ## 🙌 Credits
 
 - **[Seina-Cogs](https://github.com/japandotorg/Seina-Cogs)** — for original Captcha logic

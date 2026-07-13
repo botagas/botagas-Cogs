@@ -16,6 +16,6 @@
     "private channels",
     "tools"
   ],
-  "end_user_data_statement": "This cog does not store end user data.",
+  "end_user_data_statement": "This cog stores temporary voice channel IDs and owner IDs until those rooms are deleted.",
   "min_bot_version": "3.5.0"
 }

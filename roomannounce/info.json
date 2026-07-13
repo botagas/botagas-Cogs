@@ -1,0 +1,17 @@
+{
+  "author": ["botagas"],
+  "install_msg": "RoomAnnounce is a companion for Roomer. Load Roomer first and enable the Guild Presences intent for automatic game detection.",
+  "name": "RoomAnnounce",
+  "disabled": false,
+  "short": "Advertise Roomer voice channels with game metadata.",
+  "description": "Creates persistent announcement controls, local previews, and public game-room advertisements for Roomer channels.",
+  "tags": ["voice", "games", "lfg", "roomer", "announcements"],
+  "min_bot_version": "3.5.3",
+  "min_python_version": [3, 10, 0],
+  "required_cogs": {
+    "roomer": "https://github.com/botagas/botagas-Cogs"
+  },
+  "requirements": ["aiohttp"],
+  "type": "COG",
+  "end_user_data_statement": "This cog temporarily stores Roomer channel IDs, owner IDs, game announcement settings, and owner-provided announcement text until the room is deleted."
+}

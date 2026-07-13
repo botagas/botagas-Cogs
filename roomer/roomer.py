@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Optional
 
 import discord
@@ -9,6 +10,7 @@ from redbot.core import commands as red_commands
 from redbot.core.i18n import Translator, cog_i18n
 
 _ = Translator("Roomer", __file__)
+log = logging.getLogger("red.botagas.roomer")
 
 
 @cog_i18n(_)
@@ -28,12 +30,150 @@ class Roomer(red_commands.Cog):
             name="Voice Room",
             user_limit=None,
             presets={},
+            rooms={},
         )
         self.channel_owners = {}
         self.reminder_messages = {}
+        self._restore_task = asyncio.create_task(self._restore_rooms())
+
+    async def cog_unload(self):
+        self._restore_task.cancel()
+
+    async def _restore_rooms(self):
+        await self.bot.wait_until_red_ready()
+        for guild_id, data in (await self.config.all_guilds()).items():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            presets = data.get("presets", {})
+            presets_changed = False
+            for preset in presets.values():
+                defaults = {
+                    "game_name": "",
+                    "game_aliases": [],
+                    "announcement_role_id": None,
+                    "announcement_description": "",
+                    "announcement_image_url": "",
+                }
+                for key, value in defaults.items():
+                    if key not in preset:
+                        preset[key] = value
+                        presets_changed = True
+            if presets_changed:
+                await self.config.guild(guild).presets.set(presets)
+            rooms = data.get("rooms", {})
+            changed = False
+            for channel_id, room in list(rooms.items()):
+                channel = guild.get_channel(int(channel_id))
+                if not isinstance(channel, discord.VoiceChannel):
+                    rooms.pop(channel_id, None)
+                    changed = True
+                    continue
+                owner_id = room.get("owner_id")
+                if not owner_id:
+                    rooms.pop(channel_id, None)
+                    changed = True
+                    continue
+                self.channel_owners[channel.id] = owner_id
+                message_id = room.get("control_message_id")
+                if message_id:
+                    self.bot.add_view(
+                        ChannelControlView(channel, owner_id, self), message_id=message_id
+                    )
+            if changed:
+                await self.config.guild(guild).rooms.set(rooms)
+
+    async def get_room(self, channel_id: int) -> Optional[dict]:
+        for guild in self.bot.guilds:
+            room = (await self.config.guild(guild).rooms()).get(str(channel_id))
+            if room:
+                return room
+        return None
+
+    def get_room_owner_id(self, channel_id: int) -> Optional[int]:
+        return self.channel_owners.get(channel_id)
+
+    def is_room_owner(self, channel: discord.VoiceChannel, member: discord.Member) -> bool:
+        return self.channel_owners.get(channel.id) == member.id and member in channel.members
+
+    async def _save_room(
+        self,
+        channel: discord.VoiceChannel,
+        owner_id: int,
+        control_message_id: Optional[int] = None,
+        selected_preset: Optional[str] = None,
+    ) -> None:
+        async with self.config.guild(channel.guild).rooms() as rooms:
+            current = rooms.get(str(channel.id), {})
+            current.update(
+                {
+                    "owner_id": owner_id,
+                    "control_message_id": (
+                        control_message_id
+                        if control_message_id is not None
+                        else current.get("control_message_id")
+                    ),
+                    "selected_preset": selected_preset,
+                }
+            )
+            rooms[str(channel.id)] = current
+
+    async def set_room_owner(self, channel: discord.VoiceChannel, owner_id: int) -> None:
+        self.channel_owners[channel.id] = owner_id
+        room = await self.get_room(channel.id) or {}
+        await self._save_room(
+            channel,
+            owner_id,
+            room.get("control_message_id"),
+            room.get("selected_preset"),
+        )
+        self.bot.dispatch("roomer_owner_changed", channel, owner_id)
+
+    async def set_room_preset(
+        self, channel: discord.VoiceChannel, preset_name: Optional[str]
+    ) -> None:
+        room = await self.get_room(channel.id) or {}
+        await self._save_room(
+            channel,
+            room.get("owner_id", self.channel_owners.get(channel.id)),
+            room.get("control_message_id"),
+            preset_name,
+        )
+        presets = await self.config.guild(channel.guild).presets()
+        self.bot.dispatch(
+            "roomer_preset_applied", channel, preset_name, presets.get(preset_name, {})
+        )
 
     async def red_delete_data_for_user(self, **kwargs):
-        return
+        user_id = kwargs.get("user_id")
+        if not user_id:
+            return
+        for guild_id, data in (await self.config.all_guilds()).items():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            rooms = data.get("rooms", {})
+            changed = False
+            for channel_id, room in rooms.items():
+                if room.get("owner_id") != user_id:
+                    continue
+                room["owner_id"] = guild.me.id
+                self.channel_owners[int(channel_id)] = guild.me.id
+                channel = guild.get_channel(int(channel_id))
+                if isinstance(channel, discord.VoiceChannel):
+                    member = guild.get_member(user_id)
+                    if member:
+                        try:
+                            await channel.set_permissions(member, overwrite=None)
+                        except (discord.Forbidden, discord.HTTPException):
+                            log.warning(
+                                "Could not remove stored room permissions for user %s",
+                                user_id,
+                            )
+                    self.bot.dispatch("roomer_owner_changed", channel, guild.me.id)
+                changed = True
+            if changed:
+                await self.config.guild(guild).rooms.set(rooms)
 
     async def send_claim_reminder(self, channel: discord.VoiceChannel):
         """Send a reminder to users in the channel to claim ownership."""
@@ -99,6 +239,11 @@ class Roomer(red_commands.Cog):
         title="Optional title for the voice channel",
         status="Optional status for the channel",
         limit="Optional user limit (0-99)",
+        game="Game represented by this preset",
+        aliases="Comma-separated game aliases used for detection",
+        announce_role="Role tagged by room announcements",
+        announce_description="Default announcement description",
+        announce_image="Default HTTPS announcement image",
     )
     @app_commands.choices(
         action=[
@@ -108,7 +253,7 @@ class Roomer(red_commands.Cog):
             app_commands.Choice(name="list", value="list"),
         ]
     )
-    @commands.has_permissions(administrator=True)
+    @app_commands.checks.has_permissions(administrator=True)
     async def preset(
         self,
         interaction: discord.Interaction,
@@ -117,8 +262,24 @@ class Roomer(red_commands.Cog):
         title: Optional[str] = None,
         status: Optional[str] = None,
         limit: Optional[int] = None,
+        game: Optional[str] = None,
+        aliases: Optional[str] = None,
+        announce_role: Optional[discord.Role] = None,
+        announce_description: Optional[str] = None,
+        announce_image: Optional[str] = None,
     ):
         presets = await self.config.guild(interaction.guild).presets()
+
+        for value, maximum, label in (
+            (game, 100, "Game"),
+            (aliases, 1000, "Aliases"),
+            (announce_description, 1000, "Announcement description"),
+            (announce_image, 1000, "Announcement image URL"),
+        ):
+            if value and len(value) > maximum:
+                return await interaction.response.send_message(
+                    f"❌ {label} must be {maximum} characters or less.", ephemeral=True
+                )
 
         if action.value == "add":
             if not name or not title:
@@ -146,7 +307,22 @@ class Roomer(red_commands.Cog):
                     "❌ Limit must be between 0 and 99.", ephemeral=True
                 )
 
-            presets[name] = {"title": title, "status": status or "", "limit": limit}
+            if announce_image and not announce_image.startswith("https://"):
+                return await interaction.response.send_message(
+                    "❌ Announcement images must use an HTTPS URL.", ephemeral=True
+                )
+            presets[name] = {
+                "title": title,
+                "status": status or "",
+                "limit": limit,
+                "game_name": game or "",
+                "game_aliases": [
+                    item.strip() for item in (aliases or "").split(",") if item.strip()
+                ],
+                "announcement_role_id": announce_role.id if announce_role else None,
+                "announcement_description": announce_description or "",
+                "announcement_image_url": announce_image or "",
+            }
             await self.config.guild(interaction.guild).presets.set(presets)
             await interaction.response.send_message(
                 f"✅ Preset `{name}` has been added.", ephemeral=True
@@ -180,6 +356,23 @@ class Roomer(red_commands.Cog):
                     )
                 presets[name]["limit"] = limit
 
+            if game is not None:
+                presets[name]["game_name"] = game
+            if aliases is not None:
+                presets[name]["game_aliases"] = [
+                    item.strip() for item in aliases.split(",") if item.strip()
+                ]
+            if announce_role is not None:
+                presets[name]["announcement_role_id"] = announce_role.id
+            if announce_description is not None:
+                presets[name]["announcement_description"] = announce_description
+            if announce_image is not None:
+                if announce_image and not announce_image.startswith("https://"):
+                    return await interaction.response.send_message(
+                        "❌ Announcement images must use an HTTPS URL.", ephemeral=True
+                    )
+                presets[name]["announcement_image_url"] = announce_image
+
             await self.config.guild(interaction.guild).presets.set(presets)
             await interaction.response.send_message(
                 f"✅ Preset `{name}` has been updated.", ephemeral=True
@@ -209,9 +402,41 @@ class Roomer(red_commands.Cog):
                 desc += (
                     f"**Limit:** {data.get('limit') if data.get('limit') is not None else 'None'}"
                 )
+                desc += f"\n**Game:** {data.get('game_name') or 'None'}"
+                role_id = data.get("announcement_role_id")
+                desc += f"\n**Announcement role:** {f'<@&{role_id}>' if role_id else 'None'}"
                 embed.add_field(name=name, value=desc, inline=False)
 
             await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @roomer_group.command(name="presetclear", description="Clear a preset announcement field.")
+    @app_commands.describe(name="Preset name", field="Announcement field to clear")
+    @app_commands.choices(
+        field=[
+            app_commands.Choice(name="game", value="game_name"),
+            app_commands.Choice(name="aliases", value="game_aliases"),
+            app_commands.Choice(name="role", value="announcement_role_id"),
+            app_commands.Choice(name="description", value="announcement_description"),
+            app_commands.Choice(name="image", value="announcement_image_url"),
+        ]
+    )
+    @app_commands.checks.has_permissions(administrator=True)
+    async def presetclear(
+        self,
+        interaction: discord.Interaction,
+        name: str,
+        field: app_commands.Choice[str],
+    ):
+        presets = await self.config.guild(interaction.guild).presets()
+        if name not in presets:
+            return await interaction.response.send_message(
+                f"❌ Preset `{name}` does not exist.", ephemeral=True
+            )
+        presets[name][field.value] = [] if field.value == "game_aliases" else None
+        await self.config.guild(interaction.guild).presets.set(presets)
+        await interaction.response.send_message(
+            f"✅ Cleared `{field.name}` from preset `{name}`.", ephemeral=True
+        )
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -257,7 +482,7 @@ class Roomer(red_commands.Cog):
 
         try:
             view = ChannelControlView(new_channel, member.id, self)
-            await new_channel.send(
+            control_message = await new_channel.send(
                 embed=discord.Embed(
                     title="🔧 Voice Channel Controls",
                     description="Use the buttons below to control your channel.",
@@ -265,13 +490,20 @@ class Roomer(red_commands.Cog):
                 ),
                 view=view,
             )
+            await self._save_room(new_channel, member.id, control_message.id)
+            self.bot.dispatch("roomer_room_created", new_channel, member.id)
         except Exception:
-            pass
+            log.exception("Failed to initialize controls for room %s", new_channel.id)
 
     async def schedule_deletion(self, channel: discord.VoiceChannel):
         await asyncio.sleep(10)
         if channel and len(channel.members) == 0:
             try:
+                announcer = self.bot.get_cog("RoomAnnounce")
+                if announcer is not None:
+                    await announcer.cleanup_room(channel)
+                self.bot.dispatch("roomer_room_deleting", channel)
+                await asyncio.sleep(0)
                 await channel.delete(reason="Temporary voice channel expired")
             except discord.NotFound:
                 pass
@@ -280,6 +512,8 @@ class Roomer(red_commands.Cog):
             finally:
                 self.channel_owners.pop(channel.id, None)
                 self.reminder_messages.pop(channel.id, None)
+                async with self.config.guild(channel.guild).rooms() as rooms:
+                    rooms.pop(str(channel.id), None)
         elif channel and len(channel.members) > 0:
             # Send a reminder to claim the room
             await self.send_claim_reminder(channel)
@@ -394,9 +628,10 @@ class LimitModal(discord.ui.Modal, title="Set Channel User Limit"):
 
 
 class ApplyPresetSelect(discord.ui.Select):
-    def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict[str, str]]):
+    def __init__(self, channel: discord.VoiceChannel, presets: dict[str, dict], cog: Roomer):
         self.channel = channel
         self.presets = presets
+        self.cog = cog
         options = [
             discord.SelectOption(label=name, description=data.get("title") or "No title")
             for name, data in presets.items()
@@ -420,6 +655,7 @@ class ApplyPresetSelect(discord.ui.Select):
                 status=preset.get("status", None),
                 user_limit=min(preset.get("limit") or 0, 99),
             )
+            await self.cog.set_room_preset(self.channel, selected)
             await interaction.response.send_message(
                 f"✅ Applied preset **{selected}** to the channel.", ephemeral=True
             )
@@ -437,9 +673,10 @@ class ChannelControlView(discord.ui.View):
         self.cog = cog
 
     async def _check_permissions(self, interaction: discord.Interaction):
-        if interaction.user.id != self.owner_id:
+        if not self.cog.is_room_owner(self.channel, interaction.user):
             await interaction.response.send_message(
-                "❌ You are not the owner of this voice channel.", ephemeral=True
+                "❌ You must be the current owner and present in this voice channel.",
+                ephemeral=True,
             )
             return False
         return True
@@ -509,7 +746,9 @@ class ChannelControlView(discord.ui.View):
             ephemeral=True,
         )
 
-    @discord.ui.button(label="➕ Permit", row=1, style=discord.ButtonStyle.success)
+    @discord.ui.button(
+        label="➕ Permit", row=1, custom_id="roomer:permit", style=discord.ButtonStyle.success
+    )
     async def permit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -521,7 +760,9 @@ class ChannelControlView(discord.ui.View):
             "Select a user or role to permit:", view=view, ephemeral=True
         )
 
-    @discord.ui.button(label="➖ Forbid", row=1, style=discord.ButtonStyle.danger)
+    @discord.ui.button(
+        label="➖ Forbid", row=1, custom_id="roomer:forbid", style=discord.ButtonStyle.danger
+    )
     async def forbid(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -533,28 +774,42 @@ class ChannelControlView(discord.ui.View):
             "Select a user or role to forbid:", view=view, ephemeral=True
         )
 
-    @discord.ui.button(label="✏️ Rename", row=0, style=discord.ButtonStyle.primary)
+    @discord.ui.button(
+        label="✏️ Rename", row=0, custom_id="roomer:rename", style=discord.ButtonStyle.primary
+    )
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
         modal = RenameModal(self.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="📝 Set Status", row=2, style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="📝 Set Status",
+        row=2,
+        custom_id="roomer:status",
+        style=discord.ButtonStyle.secondary,
+    )
     async def set_status(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
         modal = SetStatusModal(self.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="👥 Set Limit", row=2, style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="👥 Set Limit", row=2, custom_id="roomer:limit", style=discord.ButtonStyle.secondary
+    )
     async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
         modal = LimitModal(self.channel)
         await interaction.response.send_modal(modal)
 
-    @discord.ui.button(label="🔄 Reset Channel", row=3, style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="🔄 Reset Channel",
+        row=3,
+        custom_id="roomer:reset",
+        style=discord.ButtonStyle.secondary,
+    )
     async def reset_channel(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -568,6 +823,7 @@ class ChannelControlView(discord.ui.View):
         await self.channel.edit(
             name="Voice Room", user_limit=0, status=None, overwrites=new_overwrites
         )
+        await self.cog.set_room_preset(self.channel, None)
 
         for item in self.children:
             if isinstance(item, discord.ui.Button):
@@ -580,7 +836,12 @@ class ChannelControlView(discord.ui.View):
         await interaction.response.edit_message(view=self)
         await interaction.followup.send("🔄 Channel reset to default settings.", ephemeral=True)
 
-    @discord.ui.button(label="🧹 Clear Permissions", row=3, style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="🧹 Clear Permissions",
+        row=3,
+        custom_id="roomer:clear_permissions",
+        style=discord.ButtonStyle.secondary,
+    )
     async def clear_permissions(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not await self._check_permissions(interaction):
             return
@@ -602,15 +863,25 @@ class ChannelControlView(discord.ui.View):
                         item.label = "👁 Hide"
                         item.style = discord.ButtonStyle.danger
             await interaction.response.edit_message(view=self)
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "✅ All permission overwrites have been cleared.", ephemeral=True
             )
         except Exception as e:
-            await interaction.response.send_message(
-                f"❌ Failed to clear permissions: {e}", ephemeral=True
-            )
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    f"❌ Failed to clear permissions: {e}", ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    f"❌ Failed to clear permissions: {e}", ephemeral=True
+                )
 
-    @discord.ui.button(label="🎙 Claim Room", row=4, style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        label="🎙 Claim Room",
+        row=4,
+        custom_id="roomer:claim",
+        style=discord.ButtonStyle.secondary,
+    )
     async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             cog = self.cog
@@ -623,12 +894,13 @@ class ChannelControlView(discord.ui.View):
 
             current_owner = self.channel.guild.get_member(current_owner_id)
             if not current_owner or current_owner not in self.channel.members:
-                await self.channel.set_permissions(current_owner, overwrite=None)
+                if current_owner and current_owner != self.channel.guild.me:
+                    await self.channel.set_permissions(current_owner, overwrite=None)
                 await self.channel.set_permissions(
                     interaction.user, view_channel=True, connect=True
                 )
                 self.owner_id = interaction.user.id
-                cog.channel_owners[self.channel.id] = interaction.user.id
+                await cog.set_room_owner(self.channel, interaction.user.id)
                 reminder_message = cog.reminder_messages.pop(self.channel.id, None)
                 if reminder_message:
                     try:
@@ -664,8 +936,9 @@ class ChannelControlView(discord.ui.View):
             await interaction.response.send_message(
                 f"❌ Failed to execute command: {e}", ephemeral=True
             )
+            return
         view = discord.ui.View()
-        view.add_item(ApplyPresetSelect(self.channel, presets))
+        view.add_item(ApplyPresetSelect(self.channel, presets, self.cog))
         try:
             await interaction.response.send_message(
                 "🎮 Select a preset to apply:", view=view, ephemeral=True
