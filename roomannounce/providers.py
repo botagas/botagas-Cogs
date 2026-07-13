@@ -75,9 +75,16 @@ class ProviderHub:
                     raise MetadataProviderError(
                         f"Twitch authentication failed ({response.status})."
                     )
-                data = await response.json()
+                try:
+                    data = await response.json()
+                except (TypeError, ValueError) as exc:
+                    raise MetadataProviderError(
+                        "Twitch authentication returned an invalid response."
+                    ) from exc
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             raise MetadataProviderError("Twitch authentication failed.") from exc
+        if not isinstance(data, dict) or not data.get("access_token"):
+            raise MetadataProviderError("Twitch authentication returned an invalid response.")
         self._twitch_token = data["access_token"]
         self._twitch_token_expiry = time.monotonic() + int(data.get("expires_in", 3600))
         return client_id, self._twitch_token
@@ -104,13 +111,22 @@ class ProviderHub:
                     raise MetadataProviderError("IGDB is rate limited; try again shortly.")
                 if response.status != 200:
                     raise MetadataProviderError(f"IGDB lookup failed ({response.status}).")
-                payload = await response.json()
+                try:
+                    payload = await response.json()
+                except (TypeError, ValueError) as exc:
+                    raise MetadataProviderError("IGDB returned an invalid response.") from exc
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             self._store(cache_key, [])
             raise MetadataProviderError("IGDB lookup timed out.") from exc
 
+        if not isinstance(payload, list):
+            self._store(cache_key, [])
+            raise MetadataProviderError("IGDB returned an invalid response.")
+
         results = []
         for item in payload:
+            if not isinstance(item, dict):
+                continue
             cover = (item.get("cover") or {}).get("url") or ""
             if cover.startswith("//"):
                 cover = "https:" + cover
@@ -153,7 +169,17 @@ class ProviderHub:
             ) as response:
                 if response.status != 200:
                     raise MetadataProviderError(f"SteamGridDB search failed ({response.status}).")
-                games = (await response.json()).get("data", [])
+                try:
+                    search_payload = await response.json()
+                except (TypeError, ValueError) as exc:
+                    raise MetadataProviderError(
+                        "SteamGridDB search returned an invalid response."
+                    ) from exc
+                if not isinstance(search_payload, dict) or not isinstance(
+                    search_payload.get("data", []), list
+                ):
+                    raise MetadataProviderError("SteamGridDB search returned an invalid response.")
+                games = search_payload.get("data", [])
             game = next(
                 (item for item in games if game_names_match(query, [item.get("name")])), None
             )
@@ -173,7 +199,19 @@ class ProviderHub:
             ) as response:
                 if response.status != 200:
                     return self._store(cache_key, "") or None
-                art = (await response.json()).get("data", [])
+                try:
+                    art_payload = await response.json()
+                except (TypeError, ValueError) as exc:
+                    raise MetadataProviderError(
+                        "SteamGridDB artwork returned an invalid response."
+                    ) from exc
+                if not isinstance(art_payload, dict) or not isinstance(
+                    art_payload.get("data", []), list
+                ):
+                    raise MetadataProviderError(
+                        "SteamGridDB artwork returned an invalid response."
+                    )
+                art = art_payload.get("data", [])
         except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
             self._store(cache_key, "")
             raise MetadataProviderError("SteamGridDB lookup timed out.") from exc

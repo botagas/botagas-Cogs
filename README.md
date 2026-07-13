@@ -132,6 +132,7 @@ SteamGridDB as an optional artwork fallback.
 - `/roomannounce autoannounce <enabled>` — Toggle automatic publishing (disabled by default).
 - `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
 - `/roomannounce provider <provider> <enabled>` — Enable IGDB or SteamGridDB per server.
+- `/roomannounce lookup <game_name>` — Test exact-title provider matching and credential/API status.
 - `/roomannounce role <add|remove|list> [role]` — Manage roles owners may select.
 - `/roomannounce settings` — Show the current configuration.
 
@@ -155,6 +156,7 @@ SteamGridDB artwork requires its own API key:
 - Announcements can be disabled for the entire lifetime of an individual room.
 - Missing roles never result in an unintended mention; the owner is warned in the voice channel.
 - Public announcements and stored state are cleaned up when the Roomer channel is deleted.
+- Public embeds omit unavailable optional data; local previews retain missing-data and provider diagnostics.
 
 ---
 

@@ -226,27 +226,43 @@ class RoomAnnounce(commands.Cog):
 
     async def _resolve_provider(
         self,
-        channel: discord.VoiceChannel,
         game_name: str,
         settings: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    ) -> tuple[Dict[str, Any], List[str]]:
         provider: Dict[str, Any] = {}
+        diagnostics: List[str] = []
         if settings.get("igdb_enabled"):
             try:
-                provider = await self.providers.exact_igdb(game_name) or {}
+                provider = dict(await self.providers.exact_igdb(game_name) or {})
             except MetadataProviderError as exc:
                 log.info("IGDB lookup unavailable for %s: %s", game_name, exc)
+                diagnostics.append(f"IGDB: {exc}")
+            else:
+                if provider:
+                    diagnostics.append(f"IGDB: exact title match found ({provider['name']}).")
+                else:
+                    diagnostics.append("IGDB: no exact title or alias match found.")
+        else:
+            diagnostics.append("IGDB: disabled for this server.")
         if settings.get("steamgriddb_enabled") and not provider.get("image_url"):
             try:
                 artwork = await self.providers.steamgriddb_art(game_name)
             except MetadataProviderError as exc:
                 log.info("SteamGridDB lookup unavailable for %s: %s", game_name, exc)
+                diagnostics.append(f"SteamGridDB: {exc}")
             else:
                 if artwork:
                     provider["image_url"] = artwork
                     provider.setdefault("name", game_name)
                     provider.setdefault("source", "SteamGridDB")
-        return provider
+                    diagnostics.append("SteamGridDB: safe artwork found.")
+                else:
+                    diagnostics.append("SteamGridDB: no exact-match safe artwork found.")
+        elif not settings.get("steamgriddb_enabled"):
+            diagnostics.append("SteamGridDB: disabled for this server.")
+        else:
+            diagnostics.append("SteamGridDB: skipped because artwork was already available.")
+        return provider, diagnostics
 
     async def resolve_room(self, channel: discord.VoiceChannel) -> None:
         state = await self.get_state(channel.id)
@@ -265,7 +281,11 @@ class RoomAnnounce(commands.Cog):
             )
         provider = state.get("provider") or {}
         if initial_game and not game_names_match(provider.get("name"), [initial_game]):
-            provider = await self._resolve_provider(channel, initial_game, settings)
+            provider, diagnostics = await self._resolve_provider(initial_game, settings)
+            state["provider_diagnostics"] = diagnostics
+        elif not initial_game:
+            provider = {}
+            state["provider_diagnostics"] = []
         state["provider"] = provider
 
         mapped_role_id = state.get("selected_role_id")
@@ -327,7 +347,8 @@ class RoomAnnounce(commands.Cog):
         title = f"🎮 {game_name}" if public else "🎮 Room Announcement Preview"
         embed = discord.Embed(title=title, color=discord.Color.blurple())
         if public:
-            embed.description = (resolved.get("description") or "Join the room to play!")[:2000]
+            if resolved.get("description"):
+                embed.description = resolved["description"][:2000]
         else:
             embed.add_field(name="Game", value=game_name, inline=False)
             embed.add_field(name="Source", value=resolved.get("source") or "None", inline=True)
@@ -338,11 +359,13 @@ class RoomAnnounce(commands.Cog):
                 ],
                 inline=False,
             )
-        embed.add_field(name="Game party", value=resolved.get("party") or MISSING_PARTY)
+        if resolved.get("party") or not public:
+            embed.add_field(name="Game party", value=resolved.get("party") or MISSING_PARTY)
         voice_limit = channel.user_limit or "unlimited"
         embed.add_field(name="Voice room", value=f"{len(channel.members)}/{voice_limit}")
         role = channel.guild.get_role(resolved.get("role_id")) if resolved.get("role_id") else None
-        embed.add_field(name="Announcement role", value=role.mention if role else MISSING_ROLE)
+        if role or not public:
+            embed.add_field(name="Announcement role", value=role.mention if role else MISSING_ROLE)
         embed.add_field(name="Voice channel", value=channel.mention)
         if resolved.get("note"):
             embed.add_field(name="Note", value=resolved["note"][:1024], inline=False)
@@ -362,6 +385,13 @@ class RoomAnnounce(commands.Cog):
                 embed.add_field(
                     name="Detected game differs",
                     value=f"Discord detected **{resolved.get('detected_game')}**; the preset remains active.",
+                    inline=False,
+                )
+            diagnostics = state.get("provider_diagnostics") or []
+            if diagnostics:
+                embed.add_field(
+                    name="Metadata providers",
+                    value="\n".join(f"• {item}" for item in diagnostics)[:1024],
                     inline=False,
                 )
         if resolved.get("provider_url"):
@@ -681,6 +711,8 @@ class RoomAnnounce(commands.Cog):
         state = await self.get_state(channel_id)
         owner = interaction.guild.get_member(state.get("owner_id"))
         state["detected"] = self._extract_activity(owner) if owner else {}
+        state["provider"] = {}
+        state["provider_diagnostics"] = []
         await self._save_state(channel_id, state)
         await self.resolve_room(channel)
         await interaction.followup.send("✅ Announcement data refreshed.", ephemeral=True)
@@ -913,6 +945,7 @@ class RoomAnnounce(commands.Cog):
         await self.config.guild(interaction.guild).set_raw(
             f"{provider.value}_enabled", value=enabled
         )
+        self.providers.invalidate("twitch" if provider.value == "igdb" else provider.value)
         for room in self._active_guild_rooms(interaction.guild):
             state = await self.get_state(room.id)
             state["provider"] = {}
@@ -921,6 +954,37 @@ class RoomAnnounce(commands.Cog):
         await interaction.followup.send(
             f"✅ {provider.name} {'enabled' if enabled else 'disabled'}.", ephemeral=True
         )
+
+    @roomannounce_group.command(
+        name="lookup", description="Test metadata providers for an exact game title."
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def lookup(self, interaction: discord.Interaction, game_name: str):
+        await interaction.response.defer(ephemeral=True)
+        settings = await self.config.guild(interaction.guild).all()
+        provider, diagnostics = await self._resolve_provider(game_name.strip(), settings)
+        embed = discord.Embed(
+            title=f"Metadata lookup: {game_name.strip()[:100]}",
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(
+            name="Diagnostics",
+            value="\n".join(f"• {item}" for item in diagnostics)[:1024] or "No providers ran.",
+            inline=False,
+        )
+        if provider:
+            embed.add_field(name="Matched title", value=provider.get("name") or "Unknown")
+            embed.add_field(
+                name="Description", value="Available" if provider.get("description") else "Missing"
+            )
+            embed.add_field(
+                name="Artwork", value="Available" if provider.get("image_url") else "Missing"
+            )
+            if provider.get("url"):
+                embed.add_field(name="Source", value=provider["url"], inline=False)
+        else:
+            embed.add_field(name="Result", value="No usable metadata found.", inline=False)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @roomannounce_group.command(name="role", description="Manage approved announcement roles.")
     @app_commands.choices(
@@ -968,14 +1032,31 @@ class RoomAnnounce(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def settings(self, interaction: discord.Interaction):
         data = await self.config.guild(interaction.guild).all()
+        twitch_tokens = await self.bot.get_shared_api_tokens("twitch")
+        steamgriddb_tokens = await self.bot.get_shared_api_tokens("steamgriddb")
         channel = interaction.guild.get_channel(data["announcement_channel_id"])
         roles = [interaction.guild.get_role(role_id) for role_id in data["allowed_role_ids"]]
         embed = discord.Embed(title="RoomAnnounce Settings", color=discord.Color.blurple())
         embed.add_field(name="Channel", value=channel.mention if channel else "Not configured")
         embed.add_field(name="Automatic announce", value=str(data["auto_announce"]))
         embed.add_field(name="Automatic tag", value=str(data["auto_tag"]))
-        embed.add_field(name="IGDB", value=str(data["igdb_enabled"]))
-        embed.add_field(name="SteamGridDB", value=str(data["steamgriddb_enabled"]))
+        igdb_credentials = bool(
+            twitch_tokens.get("client_id") and twitch_tokens.get("client_secret")
+        )
+        embed.add_field(
+            name="IGDB",
+            value=(
+                f"{'Enabled' if data['igdb_enabled'] else 'Disabled'} — "
+                f"credentials {'configured' if igdb_credentials else 'missing'}"
+            ),
+        )
+        embed.add_field(
+            name="SteamGridDB",
+            value=(
+                f"{'Enabled' if data['steamgriddb_enabled'] else 'Disabled'} — "
+                f"API key {'configured' if steamgriddb_tokens.get('api_key') else 'missing'}"
+            ),
+        )
         embed.add_field(
             name="Approved roles",
             value=", ".join(role.mention for role in roles if role) or "None",

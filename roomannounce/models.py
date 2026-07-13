@@ -36,6 +36,7 @@ def default_room_state(owner_id: int) -> Dict[str, Any]:
         "source_choice": "auto",
         "detected": {},
         "provider": {},
+        "provider_diagnostics": [],
         "manual_overrides": {},
         "selected_role_id": None,
         "resolved": {},

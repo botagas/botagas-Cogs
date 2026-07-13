@@ -28,6 +28,11 @@ class FakeResponse:
         return self.payload
 
 
+class InvalidJsonResponse(FakeResponse):
+    async def json(self):
+        raise ValueError("invalid JSON")
+
+
 class FakeSession:
     def __init__(self, posts=None, gets=None):
         self.posts = list(posts or [])
@@ -75,6 +80,18 @@ def test_igdb_exact_match_normalizes_cover_and_caches():
 def test_igdb_missing_credentials_is_recoverable():
     hub = ProviderHub(FakeBot({}), FakeSession())
     with pytest.raises(MetadataProviderError, match="not configured"):
+        asyncio.run(hub.search_igdb("Portal 2"))
+
+
+def test_igdb_invalid_response_is_recoverable():
+    session = FakeSession(
+        posts=[
+            FakeResponse(200, {"access_token": "token", "expires_in": 3600}),
+            InvalidJsonResponse(200, None),
+        ]
+    )
+    hub = ProviderHub(FakeBot({"twitch": {"client_id": "id", "client_secret": "secret"}}), session)
+    with pytest.raises(MetadataProviderError, match="invalid response"):
         asyncio.run(hub.search_igdb("Portal 2"))
 
 
