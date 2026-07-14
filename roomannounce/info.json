@@ -4,7 +4,7 @@
   "name": "RoomAnnounce",
   "disabled": false,
   "short": "Advertise Roomer voice channels with game metadata.",
-  "description": "Creates persistent announcement controls, local previews, and public game-room advertisements for Roomer channels.",
+  "description": "Creates persistent Roomer announcement controls and automatic informational game posts for monitored static voice channels.",
   "tags": ["voice", "games", "lfg", "roomer", "announcements"],
   "min_bot_version": "3.5.3",
   "min_python_version": [3, 10, 0],
@@ -13,5 +13,5 @@
   },
   "requirements": ["aiohttp"],
   "type": "COG",
-  "end_user_data_statement": "This cog temporarily stores Roomer channel IDs, owner IDs, game announcement settings, owner-provided announcement text, and RSVP user IDs and responses. RSVP data is removed when the game changes, its announcement or room is deleted, RSVP is disabled, or a user-data deletion request is processed."
+  "end_user_data_statement": "This cog temporarily stores Roomer and monitored channel IDs, owner IDs, detected game metadata, game announcement settings, owner-provided announcement text, and RSVP user IDs and responses. Monitored-channel records do not store participant IDs. RSVP data is removed when the game changes, its announcement or room is deleted, RSVP is disabled, or a user-data deletion request is processed."
 }

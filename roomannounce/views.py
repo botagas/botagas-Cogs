@@ -181,6 +181,19 @@ class RSVPView(discord.ui.View):
         await self.cog.show_participants(interaction, self.channel_id)
 
 
+class MonitoredChannelView(discord.ui.View):
+    def __init__(self, guild_id: int, channel_id: int, locked: bool = False):
+        super().__init__(timeout=None)
+        self.add_item(
+            discord.ui.Button(
+                label="Locked" if locked else "Connect",
+                style=discord.ButtonStyle.link,
+                url=f"https://discord.com/channels/{guild_id}/{channel_id}",
+                disabled=locked,
+            )
+        )
+
+
 class AnnouncementControlView(discord.ui.View):
     def __init__(
         self,

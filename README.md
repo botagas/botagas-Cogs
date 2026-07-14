@@ -131,11 +131,13 @@ SteamGridDB as an optional artwork fallback.
 - Enable Discord's **Guild Presences** privileged intent for automatic game detection.
 - `/roomannounce channel [channel] [join_to_create]` — Set or clear the default destination or a Join-to-Create-specific destination.
 - `/roomannounce channels` — List Join-to-Create channels and their effective announcement destinations.
-- `/roomannounce autoannounce <enabled>` — Toggle automatic publishing (disabled by default).
+- `/roomannounce autoannounce <enabled>` — Toggle automatic publishing for Roomer-created rooms (disabled by default).
 - `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
 - `/roomannounce activehours set <timezone> <start> <end> [weekdays]` — Schedule hours when automatic role tags are allowed.
 - `/roomannounce activehours enable|force|clear|settings` — Toggle, enforce, clear, or inspect active hours.
 - `/roomannounce rsvp enable|names|settings` — Configure persistent announcement RSVP controls.
+- `/roomannounce monitor add <voice_channel> <announcement_channel>` — Monitor a static voice channel for detected games.
+- `/roomannounce monitor remove|list|enable` — Remove, list, enable, or disable static-channel monitoring.
 - `/roomannounce provider <provider> <enabled>` — Enable IGDB or SteamGridDB per server.
 - `/roomannounce lookup <game_name>` — Test exact-title provider matching and credential/API status.
 - `/roomannounce role <add|remove|list> [role]` — Manage roles owners may select.
@@ -168,6 +170,8 @@ SteamGridDB artwork requires its own API key:
 - RSVP summaries start on their own embed row, and a separate **Connect** link opens the advertised room in Discord.
 - Hiding a Roomer channel suspends its public post and role pings while retaining RSVP data; unhiding restores the same announcement session.
 - Locked rooms remain advertised, but show a disabled **Locked** control and cannot send new role pings until unlocked.
+- Monitored static channels publish one automatic informational post per distinct detected game, without Roomer controls, presets, RSVP, or role tags.
+- Monitored posts count non-bot members detected playing that game separately from total non-bot voice-room occupancy, and disappear when the game is no longer active.
 - Unlimited voice channels show only their current room size; limited channels show current and maximum size.
 
 ---

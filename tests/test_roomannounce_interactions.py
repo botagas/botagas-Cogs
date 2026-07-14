@@ -3,11 +3,12 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
+import discord
 import pytest
 from discord import app_commands
 
 from roomannounce.roomannounce import RoomAnnounce
-from roomannounce.views import RSVPView
+from roomannounce.views import MonitoredChannelView, RSVPView
 
 
 class FakeResponse:
@@ -55,9 +56,11 @@ class FakeConfig:
 
 
 class FakeMember:
-    def __init__(self, user_id, display_name):
+    def __init__(self, user_id, display_name, activities=None, bot=False):
         self.id = user_id
         self.display_name = display_name
+        self.activities = activities or []
+        self.bot = bot
 
 
 class FakeGuild:
@@ -85,7 +88,7 @@ class FakeChannel:
 
 def test_activehours_and_rsvp_subcommands_are_registered():
     commands = {command.name: command for command in RoomAnnounce.roomannounce_group.commands}
-    assert {"activehours", "rsvp", "autotag", "settings"} <= commands.keys()
+    assert {"activehours", "rsvp", "monitor", "autotag", "settings"} <= commands.keys()
     assert {command.name for command in commands["activehours"].commands} == {
         "set",
         "enable",
@@ -98,12 +101,23 @@ def test_activehours_and_rsvp_subcommands_are_registered():
         "names",
         "settings",
     }
+    assert {command.name for command in commands["monitor"].commands} == {
+        "add",
+        "remove",
+        "list",
+        "enable",
+    }
 
 
 def test_every_roomannounce_slash_command_defers_before_io():
     source = Path("roomannounce/roomannounce.py").read_text()
     tree = ast.parse(source)
-    command_groups = {"roomannounce_group", "activehours_group", "rsvp_group"}
+    command_groups = {
+        "roomannounce_group",
+        "activehours_group",
+        "rsvp_group",
+        "monitor_group",
+    }
     commands = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.AsyncFunctionDef):
@@ -366,3 +380,178 @@ def test_hidden_room_rejects_manual_publication():
     cog.get_state = get_state
     with pytest.raises(RuntimeError, match="Hidden rooms"):
         asyncio.run(cog.publish_room(channel))
+
+
+def test_monitored_games_group_names_and_exclude_bots():
+    def activity(name, description="", party=None, image_url=""):
+        item = SimpleNamespace(
+            type=discord.ActivityType.playing,
+            name=name,
+            details=description,
+            state="",
+            party={"size": party} if party else {},
+            application_id=123,
+            large_image_url=image_url,
+        )
+        return item
+
+    members = [
+        FakeMember(1, "One", [activity("Portal 2", "Co-op", [1, 2])]),
+        FakeMember(2, "Two", [activity("Portal-2", image_url="https://image")]),
+        FakeMember(3, "Bot", [activity("Portal 2")], bot=True),
+        FakeMember(4, "Idle"),
+    ]
+    channel = FakeChannel(FakeGuild(members))
+    channel.members = members
+    cog = object.__new__(RoomAnnounce)
+    games = cog._monitored_games(channel)
+    assert list(games) == ["portal2"]
+    assert games["portal2"]["player_count"] == 2
+    assert games["portal2"]["description"] == "Co-op"
+    assert games["portal2"]["party"] == "1/2"
+    assert games["portal2"]["image_url"] == "https://image"
+
+
+def test_monitored_embed_and_view_are_informational():
+    members = [FakeMember(1, "One"), FakeMember(2, "Two"), FakeMember(3, "Bot", bot=True)]
+    channel = FakeChannel(FakeGuild(members), member_count=0, user_limit=0)
+    channel.members = members
+    cog = object.__new__(RoomAnnounce)
+    embed = cog._build_monitored_embed(
+        channel,
+        {
+            "game_name": "Portal II",
+            "player_count": 2,
+            "description": "Detected activity",
+            "party": "2/2",
+            "image_url": "",
+        },
+        {
+            "name": "Portal 2",
+            "aliases": ["Portal II"],
+            "description": "Provider description",
+            "image_url": "https://example.com/portal.jpg",
+            "url": "https://example.com/portal",
+        },
+        locked=True,
+    )
+    fields = {field.name: field.value for field in embed.fields}
+    assert embed.title == "🎮 Portal 2"
+    assert embed.url == "https://example.com/portal"
+    assert embed.description == "Provider description"
+    assert fields["Players detected in game"] == "2"
+    assert fields["Room size"] == "2"
+    assert fields["Room access"].startswith("🔒 Locked")
+    assert embed.thumbnail.url == "https://example.com/portal.jpg"
+
+    view = MonitoredChannelView(456, 123, locked=True)
+    assert view.timeout is None
+    assert view.is_persistent()
+    assert view.children[0].label == "Locked"
+    assert view.children[0].disabled is True
+
+
+def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
+    class ConfigValue:
+        def __init__(self, value):
+            self.value = value
+
+        def __call__(self):
+            return self
+
+        def __await__(self):
+            async def get_value():
+                return self.value
+
+            return get_value().__await__()
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class GuildConfig:
+        def __init__(self):
+            self.monitored_channels = ConfigValue(
+                {
+                    "123": {
+                        "destination_id": 999,
+                        "enabled": True,
+                        "announcements": {},
+                    }
+                }
+            )
+
+        async def all(self):
+            return {"igdb_enabled": False, "steamgriddb_enabled": False}
+
+    class Config:
+        def __init__(self):
+            self.group = GuildConfig()
+
+        def guild(self, guild):
+            return self.group
+
+    class Message:
+        def __init__(self):
+            self.id = 777
+            self.deleted = False
+
+        async def delete(self):
+            self.deleted = True
+
+    class Destination:
+        def __init__(self):
+            self.id = 999
+            self.sent = []
+
+        async def send(self, **kwargs):
+            message = Message()
+            self.sent.append((message, kwargs))
+            return message
+
+    monkeypatch.setattr(discord, "TextChannel", Destination)
+    destination = Destination()
+    guild = FakeGuild()
+    guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
+    channel = FakeChannel(guild)
+    cog = object.__new__(RoomAnnounce)
+    cog.config = Config()
+    cog._monitor_locks = {}
+    games = {
+        "portal2": {
+            "identity": "portal2",
+            "game_name": "Portal 2",
+            "player_count": 2,
+            "description": "Co-op",
+            "party": "2/2",
+            "image_url": "",
+        }
+    }
+    cog._monitored_games = lambda current_channel: games
+
+    async def provider(game_name, settings):
+        return {}, []
+
+    async def fetch(destination_channel, message_id):
+        if not message_id or not destination.sent:
+            return None
+        return destination.sent[0][0]
+
+    cog._resolve_provider = provider
+    cog._fetch_message = fetch
+    asyncio.run(cog._refresh_monitored_channel(channel))
+    record = cog.config.group.monitored_channels.value["123"]
+    assert record["announcements"]["portal2"] == {
+        "message_id": 777,
+        "destination_id": 999,
+        "game_name": "Portal 2",
+    }
+    assert len(destination.sent) == 1
+    assert destination.sent[0][1]["allowed_mentions"].to_dict() == {"parse": []}
+
+    games.clear()
+    asyncio.run(cog._refresh_monitored_channel(channel))
+    assert destination.sent[0][0].deleted is True
+    assert record["announcements"] == {}

@@ -23,6 +23,7 @@ from .models import (
     game_names_match,
     has_game_context,
     is_new_game_post,
+    normalize_game_name,
     parse_clock,
     parse_weekdays,
     preset_game_name,
@@ -37,6 +38,7 @@ from .views import (
     AnnouncementControlView,
     GameChoiceView,
     MetadataChoiceView,
+    MonitoredChannelView,
     RoleChoiceView,
     RSVPView,
 )
@@ -45,10 +47,10 @@ log = logging.getLogger("red.botagas.roomannounce")
 
 
 class RoomAnnounce(commands.Cog):
-    """Companion announcements for Roomer voice channels."""
+    """Game announcements for Roomer and monitored voice channels."""
 
     roomannounce_group = app_commands.Group(
-        name="roomannounce", description="Configure Roomer game announcements."
+        name="roomannounce", description="Configure voice-channel game announcements."
     )
     activehours_group = app_commands.Group(
         name="activehours",
@@ -58,6 +60,11 @@ class RoomAnnounce(commands.Cog):
     rsvp_group = app_commands.Group(
         name="rsvp",
         description="Configure announcement RSVP controls.",
+        parent=roomannounce_group,
+    )
+    monitor_group = app_commands.Group(
+        name="monitor",
+        description="Configure informational announcements for static voice channels.",
         parent=roomannounce_group,
     )
 
@@ -80,6 +87,7 @@ class RoomAnnounce(commands.Cog):
             active_hours_forced=False,
             rsvp_enabled=False,
             rsvp_show_names=False,
+            monitored_channels={},
         )
         channel_defaults = default_room_state(0)
         channel_defaults["owner_id"] = None
@@ -88,6 +96,8 @@ class RoomAnnounce(commands.Cog):
         self.providers = ProviderHub(bot, self.session)
         self._timezones = sorted(available_timezones())
         self._presence_tasks: Dict[int, asyncio.Task] = {}
+        self._monitor_tasks: Dict[int, asyncio.Task] = {}
+        self._monitor_locks: Dict[int, asyncio.Lock] = {}
         self._rsvp_locks: Dict[int, asyncio.Lock] = {}
         self._initialize_task = asyncio.create_task(self._initialize())
 
@@ -95,6 +105,9 @@ class RoomAnnounce(commands.Cog):
         self._initialize_task.cancel()
         for task in self._presence_tasks.values():
             task.cancel()
+        for task in self._monitor_tasks.values():
+            task.cancel()
+        self._monitor_locks.clear()
         self._rsvp_locks.clear()
         await self.session.close()
 
@@ -133,23 +146,24 @@ class RoomAnnounce(commands.Cog):
         roomer = self.bot.get_cog("Roomer")
         if roomer is None:
             log.warning("RoomAnnounce loaded without Roomer; waiting for room lifecycle events.")
-            return
-        for guild_id, data in (await roomer.config.all_guilds()).items():
-            guild = self.bot.get_guild(guild_id)
-            if guild is None:
-                continue
-            for channel_id, room in data.get("rooms", {}).items():
-                channel = guild.get_channel(int(channel_id))
-                if not isinstance(channel, discord.VoiceChannel):
-                    await self.config.channel_from_id(int(channel_id)).clear()
+        else:
+            for guild_id, data in (await roomer.config.all_guilds()).items():
+                guild = self.bot.get_guild(guild_id)
+                if guild is None:
                     continue
-                await self.ensure_room(
-                    channel,
-                    room.get("owner_id"),
-                    selected_preset=room.get("selected_preset"),
-                    source_channel_id=room.get("source_channel_id"),
-                    restore=True,
-                )
+                for channel_id, room in data.get("rooms", {}).items():
+                    channel = guild.get_channel(int(channel_id))
+                    if not isinstance(channel, discord.VoiceChannel):
+                        await self.config.channel_from_id(int(channel_id)).clear()
+                        continue
+                    await self.ensure_room(
+                        channel,
+                        room.get("owner_id"),
+                        selected_preset=room.get("selected_preset"),
+                        source_channel_id=room.get("source_channel_id"),
+                        restore=True,
+                    )
+        await self._restore_monitored_channels()
 
     async def red_delete_data_for_user(self, *, requester, user_id: int):
         for channel_id, state in (await self.config.all_channels()).items():
@@ -199,6 +213,57 @@ class RoomAnnounce(commands.Cog):
     def _room_access_state(channel: discord.VoiceChannel) -> tuple[bool, bool]:
         overwrite = channel.overwrites_for(channel.guild.default_role)
         return overwrite.view_channel is False, overwrite.connect is False
+
+    def _monitor_lock(self, channel_id: int) -> asyncio.Lock:
+        return self._monitor_locks.setdefault(channel_id, asyncio.Lock())
+
+    async def _delete_monitored_message(
+        self, guild: discord.Guild, announcement: Dict[str, Any]
+    ) -> None:
+        destination = guild.get_channel(announcement.get("destination_id"))
+        message = (
+            await self._fetch_message(destination, announcement.get("message_id"))
+            if destination
+            else None
+        )
+        if message:
+            with contextlib.suppress(discord.HTTPException):
+                await message.delete()
+
+    async def _clear_monitored_announcements(
+        self, guild: discord.Guild, record: Dict[str, Any]
+    ) -> None:
+        for announcement in (record.get("announcements") or {}).values():
+            await self._delete_monitored_message(guild, announcement)
+        record["announcements"] = {}
+
+    async def _restore_monitored_channels(self) -> None:
+        for guild_id, data in (await self.config.all_guilds()).items():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            monitored = data.get("monitored_channels") or {}
+            changed = False
+            active_channels = []
+            for channel_id, record in list(monitored.items()):
+                channel = guild.get_channel(int(channel_id))
+                if not isinstance(channel, discord.VoiceChannel):
+                    await self._clear_monitored_announcements(guild, record)
+                    monitored.pop(channel_id, None)
+                    changed = True
+                    continue
+                if "enabled" not in record:
+                    record["enabled"] = True
+                    changed = True
+                if "announcements" not in record:
+                    record["announcements"] = {}
+                    changed = True
+                active_channels.append(channel)
+            if changed:
+                await self.config.guild(guild).monitored_channels.set(monitored)
+            for channel in active_channels:
+                with contextlib.suppress(discord.Forbidden, discord.HTTPException):
+                    await self._refresh_monitored_channel(channel)
 
     async def check_owner(self, interaction: discord.Interaction, channel_id: int) -> bool:
         channel = interaction.guild.get_channel(channel_id) if interaction.guild else None
@@ -359,6 +424,172 @@ class RoomAnnounce(commands.Cog):
         else:
             diagnostics.append("SteamGridDB: skipped because artwork was already available.")
         return provider, diagnostics
+
+    def _monitored_games(self, channel: discord.VoiceChannel) -> Dict[str, Dict[str, Any]]:
+        games: Dict[str, Dict[str, Any]] = {}
+        for member in channel.members:
+            if getattr(member, "bot", False):
+                continue
+            activity = self._extract_activity(member)
+            identity = normalize_game_name(activity.get("name"))
+            if not identity:
+                continue
+            game = games.setdefault(
+                identity,
+                {
+                    "identity": identity,
+                    "game_name": activity["name"],
+                    "player_count": 0,
+                    "description": "",
+                    "party": "",
+                    "image_url": "",
+                },
+            )
+            game["player_count"] += 1
+            for field in ("description", "party", "image_url"):
+                if not game[field] and activity.get(field):
+                    game[field] = activity[field]
+        return games
+
+    def _build_monitored_embed(
+        self,
+        channel: discord.VoiceChannel,
+        game: Dict[str, Any],
+        provider: Dict[str, Any],
+        locked: bool,
+    ) -> discord.Embed:
+        provider_matches = game_names_match(
+            game.get("game_name"), [provider.get("name"), *(provider.get("aliases") or [])]
+        )
+        game_name = provider.get("name") if provider_matches else game["game_name"]
+        provider_url = provider.get("url") if provider_matches else ""
+        description = (provider.get("description") if provider_matches else "") or game.get(
+            "description"
+        )
+        image_url = game.get("image_url") or (
+            provider.get("image_url") if provider_matches else ""
+        )
+        embed = discord.Embed(
+            title=f"🎮 {game_name}",
+            url=(
+                provider_url
+                if isinstance(provider_url, str)
+                and provider_url.startswith(("https://", "http://"))
+                else None
+            ),
+            description=(description or "")[:2000] or None,
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(name="Players detected in game", value=str(game["player_count"]))
+        member_count = sum(not getattr(member, "bot", False) for member in channel.members)
+        embed.add_field(name="Room size", value=format_room_size(member_count, channel.user_limit))
+        embed.add_field(name="Voice channel", value=channel.mention)
+        if game.get("party"):
+            embed.add_field(name="Rich Presence party", value=game["party"], inline=False)
+        if locked:
+            embed.add_field(
+                name="Room access",
+                value="🔒 Locked — connection is currently disabled.",
+                inline=False,
+            )
+        if isinstance(image_url, str) and image_url.startswith("https://"):
+            embed.set_thumbnail(url=image_url)
+        embed.set_footer(text="Automatically detected in a monitored voice channel")
+        return embed
+
+    async def _save_monitored_record(
+        self, guild: discord.Guild, channel_id: int, record: Dict[str, Any]
+    ) -> None:
+        async with self.config.guild(guild).monitored_channels() as monitored:
+            if str(channel_id) in monitored:
+                monitored[str(channel_id)] = record
+
+    async def _refresh_monitored_channel(self, channel: discord.VoiceChannel) -> None:
+        async with self._monitor_lock(channel.id):
+            monitored = await self.config.guild(channel.guild).monitored_channels()
+            record = monitored.get(str(channel.id))
+            if record is None:
+                return
+            record.setdefault("enabled", True)
+            record.setdefault("announcements", {})
+            hidden, locked = self._room_access_state(channel)
+            destination = channel.guild.get_channel(record.get("destination_id"))
+            if (
+                not record.get("enabled")
+                or hidden
+                or not isinstance(destination, discord.TextChannel)
+            ):
+                await self._clear_monitored_announcements(channel.guild, record)
+                await self._save_monitored_record(channel.guild, channel.id, record)
+                return
+
+            games = self._monitored_games(channel)
+            existing_announcements = record.get("announcements") or {}
+            for identity, announcement in existing_announcements.items():
+                if identity not in games:
+                    await self._delete_monitored_message(channel.guild, announcement)
+
+            settings = await self.config.guild(channel.guild).all()
+            announcements: Dict[str, Dict[str, Any]] = {}
+            for identity, game in games.items():
+                previous = existing_announcements.get(identity) or {}
+                if previous.get("destination_id") != destination.id:
+                    await self._delete_monitored_message(channel.guild, previous)
+                    previous = {}
+                provider, _diagnostics = await self._resolve_provider(game["game_name"], settings)
+                embed = self._build_monitored_embed(channel, game, provider, locked)
+                view = MonitoredChannelView(channel.guild.id, channel.id, locked=locked)
+                message = await self._fetch_message(destination, previous.get("message_id"))
+                try:
+                    if message:
+                        await message.edit(
+                            content="",
+                            embed=embed,
+                            view=view,
+                            allowed_mentions=discord.AllowedMentions.none(),
+                        )
+                    else:
+                        message = await destination.send(
+                            embed=embed,
+                            view=view,
+                            allowed_mentions=discord.AllowedMentions.none(),
+                        )
+                except (discord.Forbidden, discord.HTTPException) as exc:
+                    log.warning(
+                        "Could not publish monitored game %s for channel %s: %s",
+                        game["game_name"],
+                        channel.id,
+                        exc,
+                    )
+                    message = None
+                announcements[identity] = {
+                    "message_id": message.id if message else None,
+                    "destination_id": destination.id,
+                    "game_name": game["game_name"],
+                }
+            record["announcements"] = announcements
+            await self._save_monitored_record(channel.guild, channel.id, record)
+
+    def _schedule_monitored_refresh(self, channel_id: int, delay: float = 30) -> None:
+        old_task = self._monitor_tasks.pop(channel_id, None)
+        if old_task:
+            old_task.cancel()
+        self._monitor_tasks[channel_id] = asyncio.create_task(
+            self._refresh_monitored_after_delay(channel_id, delay)
+        )
+
+    async def _refresh_monitored_after_delay(self, channel_id: int, delay: float) -> None:
+        try:
+            if delay:
+                await asyncio.sleep(delay)
+            channel = self.bot.get_channel(channel_id)
+            if isinstance(channel, discord.VoiceChannel):
+                await self._refresh_monitored_channel(channel)
+        except asyncio.CancelledError:
+            return
+        finally:
+            if self._monitor_tasks.get(channel_id) is asyncio.current_task():
+                self._monitor_tasks.pop(channel_id, None)
 
     async def resolve_room(self, channel: discord.VoiceChannel) -> None:
         state = await self.get_state(channel.id)
@@ -1199,34 +1430,57 @@ class RoomAnnounce(commands.Cog):
     ) -> None:
         if not isinstance(after, discord.VoiceChannel):
             return
+        access_changed = self._room_access_state(before) != self._room_access_state(after)
         roomer = self._roomer()
-        if roomer is None or after.id not in roomer.channel_owners:
-            return
-        if self._room_access_state(before) == self._room_access_state(after):
-            return
-        await self._handle_room_access_change(after)
+        if access_changed and roomer is not None and after.id in roomer.channel_owners:
+            await self._handle_room_access_change(after)
+        monitored = await self.config.guild(after.guild).monitored_channels()
+        if str(after.id) in monitored:
+            await self._refresh_monitored_channel(after)
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        monitored = await self.config.guild(channel.guild).monitored_channels()
+        record = monitored.get(str(channel.id))
+        if record is not None:
+            async with self._monitor_lock(channel.id):
+                await self._clear_monitored_announcements(channel.guild, record)
+                monitored.pop(str(channel.id), None)
+                await self.config.guild(channel.guild).monitored_channels.set(monitored)
+            task = self._monitor_tasks.pop(channel.id, None)
+            if task:
+                task.cancel()
+            self._monitor_locks.pop(channel.id, None)
+        for current in monitored.values():
+            if current.get("destination_id") == channel.id:
+                current["announcements"] = {}
+        await self.config.guild(channel.guild).monitored_channels.set(monitored)
 
     @commands.Cog.listener()
     async def on_presence_update(self, before: discord.Member, after: discord.Member):
         roomer = self._roomer()
-        if roomer is None:
-            return
-        channel_id = next(
-            (
-                room_id
-                for room_id, owner_id in roomer.channel_owners.items()
-                if owner_id == after.id
-            ),
-            None,
-        )
-        if channel_id is None:
-            return
-        old_task = self._presence_tasks.pop(channel_id, None)
-        if old_task:
-            old_task.cancel()
-        self._presence_tasks[channel_id] = asyncio.create_task(
-            self._apply_presence_after_delay(channel_id, after)
-        )
+        if roomer is not None:
+            channel_id = next(
+                (
+                    room_id
+                    for room_id, owner_id in roomer.channel_owners.items()
+                    if owner_id == after.id
+                ),
+                None,
+            )
+            if channel_id is not None:
+                old_task = self._presence_tasks.pop(channel_id, None)
+                if old_task:
+                    old_task.cancel()
+                self._presence_tasks[channel_id] = asyncio.create_task(
+                    self._apply_presence_after_delay(channel_id, after)
+                )
+        voice_channel = getattr(getattr(after, "voice", None), "channel", None)
+        if isinstance(voice_channel, discord.VoiceChannel):
+            monitored = await self.config.guild(after.guild).monitored_channels()
+            record = monitored.get(str(voice_channel.id))
+            if record and record.get("enabled", True):
+                self._schedule_monitored_refresh(voice_channel.id)
 
     @commands.Cog.listener()
     async def on_red_api_tokens_update(self, service_name: str, api_tokens):
@@ -1270,21 +1524,169 @@ class RoomAnnounce(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         roomer = self._roomer()
-        if roomer is None:
-            return
-        channel_ids = {
+        if roomer is not None:
+            channel_ids = {
+                channel.id
+                for channel in (before.channel, after.channel)
+                if channel and channel.id in roomer.channel_owners
+            }
+            for channel_id in channel_ids:
+                channel = self.bot.get_channel(channel_id)
+                if isinstance(channel, discord.VoiceChannel):
+                    await self.ensure_preview(channel)
+                    state = await self.get_state(channel_id)
+                    if state.get("public_message_id"):
+                        with contextlib.suppress(RuntimeError, discord.HTTPException):
+                            await self.publish_room(channel)
+        monitored = await self.config.guild(member.guild).monitored_channels()
+        monitored_ids = {
             channel.id
             for channel in (before.channel, after.channel)
-            if channel and channel.id in roomer.channel_owners
+            if channel
+            and (record := monitored.get(str(channel.id)))
+            and record.get("enabled", True)
         }
-        for channel_id in channel_ids:
-            channel = self.bot.get_channel(channel_id)
-            if isinstance(channel, discord.VoiceChannel):
-                await self.ensure_preview(channel)
-                state = await self.get_state(channel_id)
-                if state.get("public_message_id"):
-                    with contextlib.suppress(RuntimeError, discord.HTTPException):
-                        await self.publish_room(channel)
+        for channel_id in monitored_ids:
+            self._schedule_monitored_refresh(channel_id)
+
+    @monitor_group.command(
+        name="add", description="Monitor a static voice channel for informational game posts."
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def monitor_add(
+        self,
+        interaction: discord.Interaction,
+        voice_channel: discord.VoiceChannel,
+        announcement_channel: discord.TextChannel,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        roomer = self._roomer()
+        if roomer is not None and voice_channel.id in roomer.channel_owners:
+            return await interaction.followup.send(
+                "❌ Temporary Roomer channels already use the full announcement workflow.",
+                ephemeral=True,
+            )
+        source_permissions = voice_channel.permissions_for(interaction.guild.me)
+        if not source_permissions.view_channel:
+            return await interaction.followup.send(
+                "❌ The bot must be able to view the monitored voice channel.", ephemeral=True
+            )
+        destination_permissions = announcement_channel.permissions_for(interaction.guild.me)
+        if not destination_permissions.send_messages or not destination_permissions.embed_links:
+            return await interaction.followup.send(
+                "❌ The bot needs Send Messages and Embed Links in the announcement channel.",
+                ephemeral=True,
+            )
+        async with self._monitor_lock(voice_channel.id):
+            monitored = await self.config.guild(interaction.guild).monitored_channels()
+            previous = monitored.get(str(voice_channel.id))
+            if previous:
+                await self._clear_monitored_announcements(interaction.guild, previous)
+            monitored[str(voice_channel.id)] = {
+                "destination_id": announcement_channel.id,
+                "enabled": True,
+                "announcements": {},
+            }
+            await self.config.guild(interaction.guild).monitored_channels.set(monitored)
+        await self._refresh_monitored_channel(voice_channel)
+        await interaction.followup.send(
+            f"✅ Monitoring {voice_channel.mention}; informational game posts will be sent to "
+            f"{announcement_channel.mention}.",
+            ephemeral=True,
+        )
+
+    @monitor_group.command(name="remove", description="Stop monitoring a static voice channel.")
+    @app_commands.default_permissions(administrator=True)
+    async def monitor_remove(
+        self, interaction: discord.Interaction, voice_channel: discord.VoiceChannel
+    ):
+        await interaction.response.defer(ephemeral=True)
+        async with self._monitor_lock(voice_channel.id):
+            monitored = await self.config.guild(interaction.guild).monitored_channels()
+            record = monitored.get(str(voice_channel.id))
+            if record is None:
+                return await interaction.followup.send(
+                    "❌ That voice channel is not monitored.", ephemeral=True
+                )
+            await self._clear_monitored_announcements(interaction.guild, record)
+            monitored.pop(str(voice_channel.id), None)
+            await self.config.guild(interaction.guild).monitored_channels.set(monitored)
+        task = self._monitor_tasks.pop(voice_channel.id, None)
+        if task:
+            task.cancel()
+        self._monitor_locks.pop(voice_channel.id, None)
+        await interaction.followup.send(
+            f"✅ Stopped monitoring {voice_channel.mention} and removed its informational posts.",
+            ephemeral=True,
+        )
+
+    @monitor_group.command(name="list", description="List monitored static voice channels.")
+    @app_commands.default_permissions(administrator=True)
+    async def monitor_list(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        monitored = await self.config.guild(interaction.guild).monitored_channels()
+        lines = []
+        for channel_id, record in monitored.items():
+            voice = interaction.guild.get_channel(int(channel_id))
+            destination = interaction.guild.get_channel(record.get("destination_id"))
+            voice_label = voice.mention if voice else f"Deleted voice channel (`{channel_id}`)"
+            destination_label = (
+                destination.mention
+                if destination
+                else f"Deleted destination (`{record.get('destination_id')}`)"
+            )
+            status = "Enabled" if record.get("enabled", True) else "Disabled"
+            active_posts = sum(
+                bool(item.get("message_id"))
+                for item in (record.get("announcements") or {}).values()
+            )
+            lines.append(
+                f"• {voice_label} → {destination_label} — **{status}**, "
+                f"{active_posts} active post(s)"
+            )
+        pages = [lines[index : index + 15] for index in range(0, len(lines), 15)] or [[]]
+        for index, page in enumerate(pages):
+            embed = discord.Embed(
+                title=(
+                    "Monitored Voice Channels"
+                    if index == 0
+                    else f"Monitored Voice Channels — Page {index + 1}"
+                ),
+                description="\n".join(page) or "No static voice channels are monitored.",
+                color=discord.Color.blurple(),
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @monitor_group.command(
+        name="enable", description="Enable or disable a monitored static voice channel."
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def monitor_enable(
+        self,
+        interaction: discord.Interaction,
+        voice_channel: discord.VoiceChannel,
+        enabled: bool,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        async with self._monitor_lock(voice_channel.id):
+            monitored = await self.config.guild(interaction.guild).monitored_channels()
+            record = monitored.get(str(voice_channel.id))
+            if record is None:
+                return await interaction.followup.send(
+                    "❌ That voice channel is not monitored.", ephemeral=True
+                )
+            record["enabled"] = enabled
+            if not enabled:
+                await self._clear_monitored_announcements(interaction.guild, record)
+            monitored[str(voice_channel.id)] = record
+            await self.config.guild(interaction.guild).monitored_channels.set(monitored)
+        if enabled:
+            await self._refresh_monitored_channel(voice_channel)
+        await interaction.followup.send(
+            f"✅ Monitoring for {voice_channel.mention} is now "
+            f"{'enabled' if enabled else 'disabled'}.",
+            ephemeral=True,
+        )
 
     @roomannounce_group.command(
         name="channel", description="Set a default or Join-to-Create announcement channel."
@@ -1391,7 +1793,9 @@ class RoomAnnounce(commands.Cog):
             )
             await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @roomannounce_group.command(name="autoannounce", description="Toggle automatic publishing.")
+    @roomannounce_group.command(
+        name="autoannounce", description="Toggle automatic publishing for Roomer-created rooms."
+    )
     @app_commands.default_permissions(administrator=True)
     async def autoannounce(self, interaction: discord.Interaction, enabled: bool):
         await interaction.response.defer(ephemeral=True)
@@ -1400,7 +1804,8 @@ class RoomAnnounce(commands.Cog):
             for room in self._active_guild_rooms(interaction.guild):
                 await self.resolve_room(room)
         await interaction.followup.send(
-            f"✅ Automatic announcements {'enabled' if enabled else 'disabled'}.", ephemeral=True
+            f"✅ Automatic Roomer announcements {'enabled' if enabled else 'disabled'}.",
+            ephemeral=True,
         )
 
     @roomannounce_group.command(name="autotag", description="Toggle automatic role tagging.")
@@ -1614,6 +2019,11 @@ class RoomAnnounce(commands.Cog):
             state["provider"] = {}
             await self._save_state(room.id, state)
             await self.resolve_room(room)
+        monitored = await self.config.guild(interaction.guild).monitored_channels()
+        for channel_id in monitored:
+            channel = interaction.guild.get_channel(int(channel_id))
+            if isinstance(channel, discord.VoiceChannel):
+                await self._refresh_monitored_channel(channel)
         await interaction.followup.send(
             f"✅ {provider.name} {'enabled' if enabled else 'disabled'}.", ephemeral=True
         )
@@ -1709,7 +2119,11 @@ class RoomAnnounce(commands.Cog):
             name="Join-to-Create mappings",
             value=str(len(data.get("announcement_channels") or {})),
         )
-        embed.add_field(name="Automatic announce", value=str(data["auto_announce"]))
+        embed.add_field(
+            name="Monitored static channels",
+            value=str(len(data.get("monitored_channels") or {})),
+        )
+        embed.add_field(name="Automatic Roomer announce", value=str(data["auto_announce"]))
         embed.add_field(name="Automatic tag", value=str(data["auto_tag"]))
         schedule_enabled = bool(data.get("active_hours_enabled"))
         schedule_active = active_hours_are_active(data) if schedule_enabled else True
