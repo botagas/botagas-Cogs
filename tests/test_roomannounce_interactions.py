@@ -186,7 +186,7 @@ def test_public_embed_room_size_role_removal_and_rsvp_summary():
         guild_settings={"rsvp_enabled": True, "rsvp_show_names": True},
     )
     fields = {field.name: field.value for field in embed.fields}
-    assert fields["Room size"] == "4"
+    assert fields["In Room"] == "4"
     assert "Announcement role" not in fields
     assert "+1 more" in fields["Joining"]
     assert fields["Maybe"].startswith("**1**")
@@ -197,7 +197,7 @@ def test_public_embed_room_size_role_removal_and_rsvp_summary():
     channel.user_limit = 6
     embed = cog._build_embed(channel, state, public=False)
     fields = {field.name: field.value for field in embed.fields}
-    assert fields["Room size"] == "4/6"
+    assert fields["In Room"] == "4/6"
     assert "Announcement role" not in fields
 
 
@@ -440,7 +440,7 @@ def test_monitored_embed_and_view_are_informational():
     assert embed.url == "https://example.com/portal"
     assert embed.description == "Provider description."
     assert fields["Players detected in game"] == "2"
-    assert fields["Room size"] == "2"
+    assert fields["In Room"] == "2"
     assert fields["Room access"].startswith("🔒 Locked")
     assert embed.thumbnail.url == "https://example.com/portal.jpg"
 

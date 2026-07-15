@@ -483,7 +483,7 @@ class RoomAnnounce(commands.Cog):
         )
         embed.add_field(name="Players detected in game", value=str(game["player_count"]))
         member_count = sum(not getattr(member, "bot", False) for member in channel.members)
-        embed.add_field(name="Room size", value=format_room_size(member_count, channel.user_limit))
+        embed.add_field(name="In Room", value=format_room_size(member_count, channel.user_limit))
         embed.add_field(name="Voice channel", value=channel.mention)
         if game.get("party"):
             embed.add_field(name="Rich Presence party", value=game["party"], inline=False)
@@ -744,7 +744,7 @@ class RoomAnnounce(commands.Cog):
         if resolved.get("party") or not public:
             embed.add_field(name="Game party", value=resolved.get("party") or MISSING_PARTY)
         embed.add_field(
-            name="Room size", value=format_room_size(len(channel.members), channel.user_limit)
+            name="In Room", value=format_room_size(len(channel.members), channel.user_limit)
         )
         embed.add_field(name="Voice channel", value=channel.mention)
         if resolved.get("note"):

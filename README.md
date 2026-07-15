@@ -173,7 +173,7 @@ SteamGridDB artwork requires its own API key:
 - Locked rooms remain advertised, but show a disabled **Locked** control and cannot send new role pings until unlocked.
 - Monitored static channels publish one automatic informational post per distinct detected game, without Roomer controls, presets, RSVP, or role tags.
 - Monitored posts count non-bot members detected playing that game separately from total non-bot voice-room occupancy, and disappear when the game is no longer active.
-- Unlimited voice channels show only their current room size; limited channels show current and maximum size.
+- **In Room** shows only the current participant count for unlimited voice channels and current/maximum for limited channels.
 
 ---
 
