@@ -164,6 +164,7 @@ SteamGridDB artwork requires its own API key:
 - Missing roles never result in an unintended mention; the owner is warned in the voice channel.
 - Public announcements and stored state are cleaned up when the Roomer channel is deleted.
 - Public embeds omit unavailable optional data; local previews retain missing-data and provider diagnostics.
+- Automatically fetched provider descriptions are reduced to their first sentence; preset and manual descriptions remain unchanged.
 - Active hours suppress automatic role pings without stopping informational announcement updates; forced hours also block manual pings.
 - Active-hour weekdays are comma-separated names such as `Mon,Wed,Fri`; overnight windows use the weekday on which the window starts.
 - Optional RSVP buttons track Join, Maybe, and Not Coming responses and notify room owners at configured participation milestones.

@@ -27,12 +27,58 @@ WEEKDAY_ALIASES = {
     "sun": 6,
     "sunday": 6,
 }
+SENTENCE_ABBREVIATIONS = {
+    "dr.",
+    "e.g.",
+    "etc.",
+    "i.e.",
+    "inc.",
+    "jr.",
+    "ltd.",
+    "mr.",
+    "mrs.",
+    "ms.",
+    "no.",
+    "sr.",
+    "st.",
+    "u.k.",
+    "u.s.",
+    "vs.",
+}
 
 
 def normalize_game_name(value: Optional[str]) -> str:
     if not value:
         return ""
     return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+
+def first_sentence(value: Optional[str]) -> str:
+    text = " ".join((value or "").split())
+    if not text:
+        return ""
+    closing_characters = "\"'’”)]}"
+    for index, character in enumerate(text):
+        if character not in ".!?":
+            continue
+        end = index + 1
+        while end < len(text) and text[end] in closing_characters:
+            end += 1
+        if end < len(text) and not text[end].isspace():
+            continue
+        token = text[: index + 1].rsplit(maxsplit=1)[-1].casefold()
+        if character == "." and token in SENTENCE_ABBREVIATIONS:
+            continue
+        if (
+            character == "."
+            and index > 0
+            and end < len(text)
+            and text[index - 1].isdigit()
+            and text[end].isdigit()
+        ):
+            continue
+        return text[:end]
+    return text
 
 
 def game_names_match(name: Optional[str], candidates: Iterable[Optional[str]]) -> bool:
@@ -256,7 +302,7 @@ def resolve_fields(
 
     if provider and game_names_match(provider.get("name"), [game_name]):
         game_name = provider.get("name") or game_name
-        description = description or provider.get("description") or ""
+        description = description or first_sentence(provider.get("description"))
         image_url = image_url or provider.get("image_url") or ""
         provider_url = provider.get("url") or ""
         if source == "None":

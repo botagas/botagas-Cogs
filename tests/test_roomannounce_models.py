@@ -9,6 +9,7 @@ from roomannounce.models import (
     automatic_metadata_ready,
     consume_rsvp_milestones,
     default_room_state,
+    first_sentence,
     format_room_size,
     game_names_match,
     is_new_game_post,
@@ -149,6 +150,39 @@ def test_normalize_and_alias_matching():
     assert normalize_game_name("Tom Clancy's Rainbow Six® Siege") == "tomclancysrainbowsixsiege"
     assert game_names_match("Rocket League", ["rocket-league", "RL"])
     assert not game_names_match("Rocket League", ["Rogue Legacy"])
+
+
+def test_provider_description_summary_uses_one_sentence():
+    assert first_sentence("First sentence. Second sentence.") == "First sentence."
+    assert first_sentence('A quoted sentence!" Another sentence.') == 'A quoted sentence!"'
+    assert first_sentence("Dr. Mario returns. Another sentence.") == "Dr. Mario returns."
+    assert first_sentence("  A single sentence without punctuation  ") == (
+        "A single sentence without punctuation"
+    )
+
+    provider_description = "Provider sentence one. Provider sentence two."
+    resolved = resolve_fields(
+        None,
+        {},
+        {"name": "Portal 2"},
+        {"name": "Portal 2", "description": provider_description},
+        {},
+        None,
+    )
+    assert resolved["description"] == "Provider sentence one."
+
+    resolved = resolve_fields(
+        "portal",
+        {
+            "game_name": "Portal 2",
+            "announcement_description": "Preset sentence one. Preset sentence two.",
+        },
+        {},
+        {"name": "Portal 2", "description": provider_description},
+        {},
+        None,
+    )
+    assert resolved["description"] == "Preset sentence one. Preset sentence two."
 
 
 def test_preset_identity_wins_and_matching_presence_enriches_it():

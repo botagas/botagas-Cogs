@@ -19,6 +19,7 @@ from .models import (
     automatic_metadata_ready,
     consume_rsvp_milestones,
     default_room_state,
+    first_sentence,
     format_room_size,
     game_names_match,
     has_game_context,
@@ -463,9 +464,9 @@ class RoomAnnounce(commands.Cog):
         )
         game_name = provider.get("name") if provider_matches else game["game_name"]
         provider_url = provider.get("url") if provider_matches else ""
-        description = (provider.get("description") if provider_matches else "") or game.get(
-            "description"
-        )
+        description = (
+            first_sentence(provider.get("description")) if provider_matches else ""
+        ) or game.get("description")
         image_url = game.get("image_url") or (
             provider.get("image_url") if provider_matches else ""
         )

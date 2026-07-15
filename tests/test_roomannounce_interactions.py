@@ -429,7 +429,7 @@ def test_monitored_embed_and_view_are_informational():
         {
             "name": "Portal 2",
             "aliases": ["Portal II"],
-            "description": "Provider description",
+            "description": "Provider description. Additional provider sentence.",
             "image_url": "https://example.com/portal.jpg",
             "url": "https://example.com/portal",
         },
@@ -438,7 +438,7 @@ def test_monitored_embed_and_view_are_informational():
     fields = {field.name: field.value for field in embed.fields}
     assert embed.title == "🎮 Portal 2"
     assert embed.url == "https://example.com/portal"
-    assert embed.description == "Provider description"
+    assert embed.description == "Provider description."
     assert fields["Players detected in game"] == "2"
     assert fields["Room size"] == "2"
     assert fields["Room access"].startswith("🔒 Locked")
