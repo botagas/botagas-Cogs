@@ -89,6 +89,8 @@ class RoomAnnounce(commands.Cog):
             rsvp_enabled=False,
             rsvp_show_names=False,
             monitored_channels={},
+            auto_hide_empty_channels=False,
+            hidden_announcement_channels={},
         )
         channel_defaults = default_room_state(0)
         channel_defaults["owner_id"] = None
@@ -99,17 +101,26 @@ class RoomAnnounce(commands.Cog):
         self._presence_tasks: Dict[int, asyncio.Task] = {}
         self._monitor_tasks: Dict[int, asyncio.Task] = {}
         self._monitor_locks: Dict[int, asyncio.Lock] = {}
+        self._destination_locks: Dict[tuple[int, int], asyncio.Lock] = {}
+        self._visibility_tasks: Dict[tuple[int, int], asyncio.Task] = {}
         self._rsvp_locks: Dict[int, asyncio.Lock] = {}
         self._initialize_task = asyncio.create_task(self._initialize())
 
     async def cog_unload(self):
-        self._initialize_task.cancel()
-        for task in self._presence_tasks.values():
+        tasks = {
+            self._initialize_task,
+            *self._presence_tasks.values(),
+            *self._monitor_tasks.values(),
+            *self._visibility_tasks.values(),
+        }
+        for task in tasks:
             task.cancel()
-        for task in self._monitor_tasks.values():
-            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         self._monitor_locks.clear()
+        self._destination_locks.clear()
+        self._visibility_tasks.clear()
         self._rsvp_locks.clear()
+        await self._restore_managed_destinations_on_unload()
         await self.session.close()
 
     async def cog_app_command_error(
@@ -165,6 +176,7 @@ class RoomAnnounce(commands.Cog):
                         restore=True,
                     )
         await self._restore_monitored_channels()
+        await self._restore_destination_visibility()
 
     async def red_delete_data_for_user(self, *, requester, user_id: int):
         for channel_id, state in (await self.config.all_channels()).items():
@@ -218,6 +230,166 @@ class RoomAnnounce(commands.Cog):
     def _monitor_lock(self, channel_id: int) -> asyncio.Lock:
         return self._monitor_locks.setdefault(channel_id, asyncio.Lock())
 
+    def _destination_lock(self, guild_id: int, channel_id: int) -> asyncio.Lock:
+        return self._destination_locks.setdefault((guild_id, channel_id), asyncio.Lock())
+
+    @staticmethod
+    def _configured_destination_ids(settings: Dict[str, Any]) -> set[int]:
+        destination_ids = {
+            destination_id
+            for destination_id in [
+                settings.get("announcement_channel_id"),
+                *(settings.get("announcement_channels") or {}).values(),
+            ]
+            if isinstance(destination_id, int)
+        }
+        destination_ids.update(
+            record.get("destination_id")
+            for record in (settings.get("monitored_channels") or {}).values()
+            if isinstance(record.get("destination_id"), int)
+        )
+        return destination_ids
+
+    async def _destination_has_active_announcements(
+        self, guild: discord.Guild, destination_id: int
+    ) -> bool:
+        for state in (await self.config.all_channels()).values():
+            if state.get("public_channel_id") == destination_id and state.get("public_message_id"):
+                return True
+        monitored = await self.config.guild(guild).monitored_channels()
+        return any(
+            announcement.get("destination_id") == destination_id and announcement.get("message_id")
+            for record in monitored.values()
+            for announcement in (record.get("announcements") or {}).values()
+        )
+
+    async def _show_managed_destination(self, channel: discord.TextChannel) -> None:
+        group = self.config.guild(channel.guild)
+        hidden_channels = await group.hidden_announcement_channels()
+        record = hidden_channels.get(str(channel.id))
+        if record is None:
+            return
+        overwrites = channel.overwrites
+        overwrite = overwrites.get(channel.guild.default_role, discord.PermissionOverwrite())
+        overwrite.view_channel = record.get("original_view_channel")
+        if overwrite.is_empty():
+            overwrites.pop(channel.guild.default_role, None)
+        else:
+            overwrites[channel.guild.default_role] = overwrite
+        await channel.edit(
+            overwrites=overwrites,
+            reason="RoomAnnounce is making an active announcement channel visible.",
+        )
+        async with group.hidden_announcement_channels() as current:
+            current.pop(str(channel.id), None)
+
+    async def _hide_managed_destination(self, channel: discord.TextChannel) -> None:
+        group = self.config.guild(channel.guild)
+        hidden_channels = await group.hidden_announcement_channels()
+        record = hidden_channels.get(str(channel.id))
+        overwrites = channel.overwrites
+        overwrite = overwrites.get(channel.guild.default_role, discord.PermissionOverwrite())
+        if overwrite.view_channel is False:
+            return
+        if record is None:
+            record = {"original_view_channel": overwrite.view_channel}
+            async with group.hidden_announcement_channels() as current:
+                current[str(channel.id)] = record
+        overwrite.view_channel = False
+        overwrites[channel.guild.default_role] = overwrite
+        try:
+            await channel.edit(
+                overwrites=overwrites,
+                reason="RoomAnnounce is hiding an empty announcement channel.",
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            async with group.hidden_announcement_channels() as current:
+                current.pop(str(channel.id), None)
+            raise
+
+    async def _reconcile_destination_visibility(
+        self, guild: discord.Guild, destination_id: int
+    ) -> None:
+        channel = guild.get_channel(destination_id)
+        if not isinstance(channel, discord.TextChannel):
+            async with self.config.guild(guild).hidden_announcement_channels() as current:
+                current.pop(str(destination_id), None)
+            return
+        async with self._destination_lock(guild.id, destination_id):
+            settings = await self.config.guild(guild).all()
+            enabled = settings.get("auto_hide_empty_channels", False)
+            configured = destination_id in self._configured_destination_ids(settings)
+            has_announcements = await self._destination_has_active_announcements(
+                guild, destination_id
+            )
+            try:
+                if enabled and configured and not has_announcements:
+                    await self._hide_managed_destination(channel)
+                else:
+                    await self._show_managed_destination(channel)
+            except (discord.Forbidden, discord.HTTPException) as exc:
+                log.warning(
+                    "Could not reconcile RoomAnnounce visibility for channel %s: %s",
+                    destination_id,
+                    exc,
+                )
+
+    def _schedule_destination_visibility(
+        self, guild: discord.Guild, destination_id: Optional[int], delay: float = 2
+    ) -> None:
+        if not destination_id:
+            return
+        key = (guild.id, destination_id)
+        task = self._visibility_tasks.pop(key, None)
+        if task:
+            task.cancel()
+        self._visibility_tasks[key] = asyncio.create_task(
+            self._reconcile_destination_after_delay(guild.id, destination_id, delay)
+        )
+
+    async def _reconcile_destination_after_delay(
+        self, guild_id: int, destination_id: int, delay: float
+    ) -> None:
+        key = (guild_id, destination_id)
+        try:
+            if delay:
+                await asyncio.sleep(delay)
+            guild = self.bot.get_guild(guild_id)
+            if guild is not None:
+                await self._reconcile_destination_visibility(guild, destination_id)
+        except asyncio.CancelledError:
+            return
+        finally:
+            if self._visibility_tasks.get(key) is asyncio.current_task():
+                self._visibility_tasks.pop(key, None)
+
+    async def _restore_destination_visibility(self) -> None:
+        for guild_id, settings in (await self.config.all_guilds()).items():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            destination_ids = self._configured_destination_ids(settings)
+            for channel_id in list(settings.get("hidden_announcement_channels") or {}):
+                with contextlib.suppress(TypeError, ValueError):
+                    destination_ids.add(int(channel_id))
+            for destination_id in destination_ids:
+                if settings.get("auto_hide_empty_channels"):
+                    self._schedule_destination_visibility(guild, destination_id)
+                else:
+                    await self._reconcile_destination_visibility(guild, destination_id)
+
+    async def _restore_managed_destinations_on_unload(self) -> None:
+        for guild_id, settings in (await self.config.all_guilds()).items():
+            guild = self.bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            for channel_id in list(settings.get("hidden_announcement_channels") or {}):
+                with contextlib.suppress(TypeError, ValueError):
+                    channel = guild.get_channel(int(channel_id))
+                    if isinstance(channel, discord.TextChannel):
+                        with contextlib.suppress(discord.Forbidden, discord.HTTPException):
+                            await self._show_managed_destination(channel)
+
     async def _delete_monitored_message(
         self, guild: discord.Guild, announcement: Dict[str, Any]
     ) -> None:
@@ -230,13 +402,21 @@ class RoomAnnounce(commands.Cog):
         if message:
             with contextlib.suppress(discord.HTTPException):
                 await message.delete()
+        self._schedule_destination_visibility(guild, announcement.get("destination_id"))
 
     async def _clear_monitored_announcements(
         self, guild: discord.Guild, record: Dict[str, Any]
     ) -> None:
+        destination_ids = {
+            announcement.get("destination_id")
+            for announcement in (record.get("announcements") or {}).values()
+        }
+        destination_ids.add(record.get("destination_id"))
         for announcement in (record.get("announcements") or {}).values():
             await self._delete_monitored_message(guild, announcement)
         record["announcements"] = {}
+        for destination_id in destination_ids:
+            self._schedule_destination_visibility(guild, destination_id)
 
     async def _restore_monitored_channels(self) -> None:
         for guild_id, data in (await self.config.all_guilds()).items():
@@ -531,7 +711,7 @@ class RoomAnnounce(commands.Cog):
                     await self._delete_monitored_message(channel.guild, announcement)
 
             settings = await self.config.guild(channel.guild).all()
-            announcements: Dict[str, Dict[str, Any]] = {}
+            prepared_games = []
             for identity, game in games.items():
                 previous = existing_announcements.get(identity) or {}
                 if previous.get("destination_id") != destination.id:
@@ -540,36 +720,44 @@ class RoomAnnounce(commands.Cog):
                 provider, _diagnostics = await self._resolve_provider(game["game_name"], settings)
                 embed = self._build_monitored_embed(channel, game, provider, locked)
                 view = MonitoredChannelView(channel.guild.id, channel.id, locked=locked)
-                message = await self._fetch_message(destination, previous.get("message_id"))
-                try:
-                    if message:
-                        await message.edit(
-                            content="",
-                            embed=embed,
-                            view=view,
-                            allowed_mentions=discord.AllowedMentions.none(),
+                prepared_games.append((identity, game, previous, embed, view))
+
+            async with self._destination_lock(channel.guild.id, destination.id):
+                if prepared_games:
+                    await self._show_managed_destination(destination)
+                announcements: Dict[str, Dict[str, Any]] = {}
+                for identity, game, previous, embed, view in prepared_games:
+                    message = await self._fetch_message(destination, previous.get("message_id"))
+                    try:
+                        if message:
+                            await message.edit(
+                                content="",
+                                embed=embed,
+                                view=view,
+                                allowed_mentions=discord.AllowedMentions.none(),
+                            )
+                        else:
+                            message = await destination.send(
+                                embed=embed,
+                                view=view,
+                                allowed_mentions=discord.AllowedMentions.none(),
+                            )
+                    except (discord.Forbidden, discord.HTTPException) as exc:
+                        log.warning(
+                            "Could not publish monitored game %s for channel %s: %s",
+                            game["game_name"],
+                            channel.id,
+                            exc,
                         )
-                    else:
-                        message = await destination.send(
-                            embed=embed,
-                            view=view,
-                            allowed_mentions=discord.AllowedMentions.none(),
-                        )
-                except (discord.Forbidden, discord.HTTPException) as exc:
-                    log.warning(
-                        "Could not publish monitored game %s for channel %s: %s",
-                        game["game_name"],
-                        channel.id,
-                        exc,
-                    )
-                    message = None
-                announcements[identity] = {
-                    "message_id": message.id if message else None,
-                    "destination_id": destination.id,
-                    "game_name": game["game_name"],
-                }
-            record["announcements"] = announcements
-            await self._save_monitored_record(channel.guild, channel.id, record)
+                        message = None
+                    announcements[identity] = {
+                        "message_id": message.id if message else None,
+                        "destination_id": destination.id,
+                        "game_name": game["game_name"],
+                    }
+                record["announcements"] = announcements
+                await self._save_monitored_record(channel.guild, channel.id, record)
+            self._schedule_destination_visibility(channel.guild, destination.id)
 
     def _schedule_monitored_refresh(self, channel_id: int, delay: float = 30) -> None:
         old_task = self._monitor_tasks.pop(channel_id, None)
@@ -909,71 +1097,83 @@ class RoomAnnounce(commands.Cog):
                 await self._save_state(channel.id, state)
             should_tag = False
 
-        existing = await self._fetch_message(destination, state.get("public_message_id"))
-        if existing and should_tag:
-            with contextlib.suppress(discord.HTTPException):
-                await existing.delete()
-            existing = None
-            state["public_message_id"] = None
-
         embed = self._build_embed(channel, state, public=True, guild_settings=guild_settings)
         view = (
             RSVPView(self, channel.guild.id, channel.id, locked=locked)
             if guild_settings.get("rsvp_enabled")
             else None
         )
-        if existing:
-            await existing.edit(
-                content="",
-                embed=embed,
-                view=view,
-                allowed_mentions=discord.AllowedMentions.none(),
-            )
-            message = existing
-        else:
-            content = role.mention if should_tag else None
-            allowed_mentions = (
-                discord.AllowedMentions(roles=[role], users=False, everyone=False)
-                if should_tag
-                else discord.AllowedMentions.none()
-            )
-            message = await destination.send(
-                content=content,
-                embed=embed,
-                view=view,
-                allowed_mentions=allowed_mentions,
-            )
-        state["public_message_id"] = message.id
-        state["public_channel_id"] = destination.id
-        state["hidden_public_suspended"] = False
-        state["suppressed_identity"] = None
-        state["last_error"] = None
-        if should_tag:
-            state["tagged_identity"] = state.get("identity")
-        await self._save_state(channel.id, state)
+        async with self._destination_lock(channel.guild.id, destination.id):
+            await self._show_managed_destination(destination)
+            existing = await self._fetch_message(destination, state.get("public_message_id"))
+            if existing and should_tag:
+                with contextlib.suppress(discord.HTTPException):
+                    await existing.delete()
+                existing = None
+                state["public_message_id"] = None
+            if existing:
+                await existing.edit(
+                    content="",
+                    embed=embed,
+                    view=view,
+                    allowed_mentions=discord.AllowedMentions.none(),
+                )
+                message = existing
+            else:
+                content = role.mention if should_tag else None
+                allowed_mentions = (
+                    discord.AllowedMentions(roles=[role], users=False, everyone=False)
+                    if should_tag
+                    else discord.AllowedMentions.none()
+                )
+                message = await destination.send(
+                    content=content,
+                    embed=embed,
+                    view=view,
+                    allowed_mentions=allowed_mentions,
+                )
+            state["public_message_id"] = message.id
+            state["public_channel_id"] = destination.id
+            state["hidden_public_suspended"] = False
+            state["suppressed_identity"] = None
+            state["last_error"] = None
+            if should_tag:
+                state["tagged_identity"] = state.get("identity")
+            await self._save_state(channel.id, state)
         await self.ensure_preview(channel)
         return message
 
     async def _delete_public(
         self, channel: discord.VoiceChannel, state: Dict[str, Any], suppress: bool
     ) -> None:
-        destination = channel.guild.get_channel(state.get("public_channel_id"))
-        message = (
-            await self._fetch_message(destination, state.get("public_message_id"))
-            if destination
-            else None
-        )
-        if message:
-            with contextlib.suppress(discord.HTTPException):
-                await message.delete()
-        state["public_message_id"] = None
-        state["public_channel_id"] = None
-        if suppress:
-            state["suppressed_identity"] = state.get("identity")
-            state["hidden_public_suspended"] = False
-            state["rsvp_responses"] = {}
-            state["rsvp_milestones"] = []
-        await self._save_state(channel.id, state)
+        destination_id = state.get("public_channel_id")
+        destination = channel.guild.get_channel(destination_id)
+        lock = self._destination_lock(channel.guild.id, destination_id) if destination_id else None
+
+        async def delete_and_save() -> None:
+            message = (
+                await self._fetch_message(destination, state.get("public_message_id"))
+                if destination
+                else None
+            )
+            if message:
+                with contextlib.suppress(discord.HTTPException):
+                    await message.delete()
+            state["public_message_id"] = None
+            state["public_channel_id"] = None
+            if suppress:
+                state["suppressed_identity"] = state.get("identity")
+                state["hidden_public_suspended"] = False
+                state["rsvp_responses"] = {}
+                state["rsvp_milestones"] = []
+            await self._save_state(channel.id, state)
+
+        if lock is None:
+            await delete_and_save()
+        else:
+            async with lock:
+                await delete_and_save()
+        self._schedule_destination_visibility(channel.guild, destination_id)
 
     async def cleanup_room(self, channel: discord.VoiceChannel) -> None:
         state = await self.get_state(channel.id)
@@ -1441,6 +1641,13 @@ class RoomAnnounce(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
+        visibility_key = (channel.guild.id, channel.id)
+        visibility_task = self._visibility_tasks.pop(visibility_key, None)
+        if visibility_task:
+            visibility_task.cancel()
+        self._destination_locks.pop(visibility_key, None)
+        async with self.config.guild(channel.guild).hidden_announcement_channels() as current:
+            current.pop(str(channel.id), None)
         monitored = await self.config.guild(channel.guild).monitored_channels()
         record = monitored.get(str(channel.id))
         if record is not None:
@@ -1578,6 +1785,15 @@ class RoomAnnounce(commands.Cog):
                 "❌ The bot needs Send Messages and Embed Links in the announcement channel.",
                 ephemeral=True,
             )
+        if (
+            await self.config.guild(interaction.guild).auto_hide_empty_channels()
+            and not destination_permissions.manage_roles
+        ):
+            return await interaction.followup.send(
+                "❌ Auto-hide is enabled, so the bot also needs Manage Roles in the "
+                "announcement channel to change its visibility.",
+                ephemeral=True,
+            )
         async with self._monitor_lock(voice_channel.id):
             monitored = await self.config.guild(interaction.guild).monitored_channels()
             previous = monitored.get(str(voice_channel.id))
@@ -1704,6 +1920,26 @@ class RoomAnnounce(commands.Cog):
         join_to_create: Optional[discord.VoiceChannel] = None,
     ):
         await interaction.response.defer(ephemeral=True)
+        group = self.config.guild(interaction.guild)
+        previous_settings = await group.all()
+        previous_destinations = self._configured_destination_ids(previous_settings)
+        if channel is not None:
+            permissions = channel.permissions_for(interaction.guild.me)
+            if not permissions.send_messages or not permissions.embed_links:
+                return await interaction.followup.send(
+                    "❌ The bot needs Send Messages and Embed Links in the announcement "
+                    "channel.",
+                    ephemeral=True,
+                )
+            if (
+                previous_settings.get("auto_hide_empty_channels", False)
+                and not permissions.manage_roles
+            ):
+                return await interaction.followup.send(
+                    "❌ Auto-hide is enabled, so the bot also needs Manage Roles in the "
+                    "announcement channel to change its visibility.",
+                    ephemeral=True,
+                )
         roomer = self._roomer()
         if join_to_create is not None:
             configured_sources = (
@@ -1721,12 +1957,10 @@ class RoomAnnounce(commands.Cog):
                 rooms_to_republish.append(room)
                 await self._delete_public(room, state, suppress=False)
         if join_to_create is None:
-            await self.config.guild(interaction.guild).announcement_channel_id.set(
-                channel.id if channel else None
-            )
+            await group.announcement_channel_id.set(channel.id if channel else None)
             target = "Default announcement channel"
         else:
-            async with self.config.guild(interaction.guild).announcement_channels() as mappings:
+            async with group.announcement_channels() as mappings:
                 if channel:
                     mappings[str(join_to_create.id)] = channel.id
                 else:
@@ -1735,6 +1969,10 @@ class RoomAnnounce(commands.Cog):
         for room in rooms_to_republish:
             with contextlib.suppress(RuntimeError, discord.HTTPException):
                 await self.publish_room(room)
+        current_settings = await group.all()
+        current_destinations = self._configured_destination_ids(current_settings)
+        for destination_id in previous_destinations | current_destinations:
+            self._schedule_destination_visibility(interaction.guild, destination_id)
         await interaction.followup.send(
             f"✅ {target} {'set to ' + channel.mention if channel else 'cleared'}.",
             ephemeral=True,
@@ -1817,6 +2055,62 @@ class RoomAnnounce(commands.Cog):
         await interaction.followup.send(
             f"✅ Automatic role tagging {'enabled' if enabled else 'disabled'}. "
             "This affects future initial or new-game posts and never re-pings existing announcements.",
+            ephemeral=True,
+        )
+
+    @roomannounce_group.command(
+        name="autohide",
+        description="Hide empty announcement channels until a new post is ready.",
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def autohide(self, interaction: discord.Interaction, enabled: bool):
+        await interaction.response.defer(ephemeral=True)
+        group = self.config.guild(interaction.guild)
+        settings = await group.all()
+        configured_destination_ids = self._configured_destination_ids(settings)
+        destination_ids = set(configured_destination_ids)
+        for channel_id in settings.get("hidden_announcement_channels") or {}:
+            with contextlib.suppress(TypeError, ValueError):
+                destination_ids.add(int(channel_id))
+        destinations = [
+            channel
+            for destination_id in destination_ids
+            if isinstance(
+                channel := interaction.guild.get_channel(destination_id),
+                discord.TextChannel,
+            )
+        ]
+        if enabled:
+            unavailable = [
+                channel
+                for channel in destinations
+                if channel.id in configured_destination_ids
+                and not channel.permissions_for(interaction.guild.me).manage_roles
+            ]
+            if unavailable:
+                labels = ", ".join(channel.mention for channel in unavailable)
+                return await interaction.followup.send(
+                    "❌ The bot needs Manage Roles in every configured destination before "
+                    f"auto-hide can be enabled. Missing in: {labels}",
+                    ephemeral=True,
+                )
+        await group.auto_hide_empty_channels.set(enabled)
+        for destination in destinations:
+            if enabled:
+                self._schedule_destination_visibility(interaction.guild, destination.id, delay=2)
+            else:
+                await self._reconcile_destination_visibility(interaction.guild, destination.id)
+        detail = (
+            "Empty destinations will be hidden after a short safety delay and made visible "
+            "before the next RoomAnnounce post. Channels already hidden by an administrator "
+            "are left unchanged."
+            if enabled
+            else "Any destination hidden by RoomAnnounce has been restored to its original "
+            "visibility."
+        )
+        await interaction.followup.send(
+            f"✅ Automatic hiding of empty announcement channels "
+            f"{'enabled' if enabled else 'disabled'}. {detail}",
             ephemeral=True,
         )
 
@@ -2126,6 +2420,10 @@ class RoomAnnounce(commands.Cog):
         )
         embed.add_field(name="Automatic Roomer announce", value=str(data["auto_announce"]))
         embed.add_field(name="Automatic tag", value=str(data["auto_tag"]))
+        embed.add_field(
+            name="Hide empty destinations",
+            value=str(data.get("auto_hide_empty_channels", False)),
+        )
         schedule_enabled = bool(data.get("active_hours_enabled"))
         schedule_active = active_hours_are_active(data) if schedule_enabled else True
         embed.add_field(

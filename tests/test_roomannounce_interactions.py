@@ -88,7 +88,14 @@ class FakeChannel:
 
 def test_activehours_and_rsvp_subcommands_are_registered():
     commands = {command.name: command for command in RoomAnnounce.roomannounce_group.commands}
-    assert {"activehours", "rsvp", "monitor", "autotag", "settings"} <= commands.keys()
+    assert {
+        "activehours",
+        "rsvp",
+        "monitor",
+        "autotag",
+        "autohide",
+        "settings",
+    } <= commands.keys()
     assert {command.name for command in commands["activehours"].commands} == {
         "set",
         "enable",
@@ -482,6 +489,8 @@ def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
                     }
                 }
             )
+            self.hidden_announcement_channels = ConfigValue({})
+            self.auto_hide_empty_channels = ConfigValue(False)
 
         async def all(self):
             return {"igdb_enabled": False, "steamgriddb_enabled": False}
@@ -505,6 +514,7 @@ def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
         def __init__(self):
             self.id = 999
             self.sent = []
+            self.guild = None
 
         async def send(self, **kwargs):
             message = Message()
@@ -514,11 +524,14 @@ def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
     monkeypatch.setattr(discord, "TextChannel", Destination)
     destination = Destination()
     guild = FakeGuild()
+    destination.guild = guild
     guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
     channel = FakeChannel(guild)
     cog = object.__new__(RoomAnnounce)
     cog.config = Config()
     cog._monitor_locks = {}
+    cog._destination_locks = {}
+    cog._visibility_tasks = {}
     games = {
         "portal2": {
             "identity": "portal2",
@@ -555,3 +568,238 @@ def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
     asyncio.run(cog._refresh_monitored_channel(channel))
     assert destination.sent[0][0].deleted is True
     assert record["announcements"] == {}
+
+
+def test_destination_visibility_preserves_overwrites_and_restores_when_active(monkeypatch):
+    class ConfigValue:
+        def __init__(self, value):
+            self.value = value
+
+        def __call__(self):
+            return self
+
+        def __await__(self):
+            async def get_value():
+                return self.value
+
+            return get_value().__await__()
+
+        async def set(self, value):
+            self.value = value
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class GuildConfig:
+        def __init__(self):
+            self.auto_hide_empty_channels = ConfigValue(True)
+            self.hidden_announcement_channels = ConfigValue({})
+            self.monitored_channels = ConfigValue({})
+            self.announcement_channel_id = 999
+
+        async def all(self):
+            return {
+                "auto_hide_empty_channels": self.auto_hide_empty_channels.value,
+                "hidden_announcement_channels": self.hidden_announcement_channels.value,
+                "monitored_channels": self.monitored_channels.value,
+                "announcement_channel_id": self.announcement_channel_id,
+                "announcement_channels": {},
+            }
+
+    class Config:
+        def __init__(self):
+            self.group = GuildConfig()
+            self.channels = {}
+
+        def guild(self, guild):
+            return self.group
+
+        async def all_channels(self):
+            return self.channels
+
+    class Destination:
+        def __init__(self, guild):
+            self.id = 999
+            self.guild = guild
+            self.overwrites = {
+                guild.default_role: discord.PermissionOverwrite(send_messages=False)
+            }
+            self.edits = []
+
+        async def edit(self, *, overwrites, reason):
+            self.overwrites = overwrites
+            self.edits.append(reason)
+
+    monkeypatch.setattr(discord, "TextChannel", Destination)
+    guild = FakeGuild()
+    destination = Destination(guild)
+    guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
+    cog = object.__new__(RoomAnnounce)
+    cog.config = Config()
+    cog._destination_locks = {}
+
+    asyncio.run(cog._reconcile_destination_visibility(guild, destination.id))
+    overwrite = destination.overwrites[guild.default_role]
+    assert overwrite.view_channel is False
+    assert overwrite.send_messages is False
+    assert cog.config.group.hidden_announcement_channels.value == {
+        "999": {"original_view_channel": None}
+    }
+
+    cog.config.channels["123"] = {
+        "public_channel_id": 999,
+        "public_message_id": 777,
+    }
+    asyncio.run(cog._reconcile_destination_visibility(guild, destination.id))
+    overwrite = destination.overwrites[guild.default_role]
+    assert overwrite.view_channel is None
+    assert overwrite.send_messages is False
+    assert cog.config.group.hidden_announcement_channels.value == {}
+
+
+def test_destination_visibility_does_not_claim_admin_hidden_channel(monkeypatch):
+    class ConfigValue:
+        def __init__(self, value):
+            self.value = value
+
+        def __call__(self):
+            return self
+
+        def __await__(self):
+            async def get_value():
+                return self.value
+
+            return get_value().__await__()
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class GuildConfig:
+        def __init__(self):
+            self.hidden_announcement_channels = ConfigValue({})
+            self.monitored_channels = ConfigValue({})
+
+        async def all(self):
+            return {
+                "auto_hide_empty_channels": True,
+                "announcement_channel_id": 999,
+                "announcement_channels": {},
+                "monitored_channels": {},
+            }
+
+    class Config:
+        def __init__(self):
+            self.group = GuildConfig()
+
+        def guild(self, guild):
+            return self.group
+
+        async def all_channels(self):
+            return {}
+
+    class Destination:
+        def __init__(self, guild):
+            self.id = 999
+            self.guild = guild
+            self.overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+            self.edits = []
+
+        async def edit(self, **kwargs):
+            self.edits.append(kwargs)
+
+    monkeypatch.setattr(discord, "TextChannel", Destination)
+    guild = FakeGuild()
+    destination = Destination(guild)
+    guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
+    cog = object.__new__(RoomAnnounce)
+    cog.config = Config()
+    cog._destination_locks = {}
+
+    asyncio.run(cog._reconcile_destination_visibility(guild, destination.id))
+    assert destination.edits == []
+    assert cog.config.group.hidden_announcement_channels.value == {}
+
+
+def test_delayed_visibility_check_sees_new_announcement(monkeypatch):
+    class ConfigValue:
+        def __init__(self, value):
+            self.value = value
+
+        def __call__(self):
+            return self
+
+        def __await__(self):
+            async def get_value():
+                return self.value
+
+            return get_value().__await__()
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+    class GuildConfig:
+        def __init__(self):
+            self.hidden_announcement_channels = ConfigValue({})
+            self.monitored_channels = ConfigValue({})
+
+        async def all(self):
+            return {
+                "auto_hide_empty_channels": True,
+                "announcement_channel_id": 999,
+                "announcement_channels": {},
+                "monitored_channels": {},
+            }
+
+    class Config:
+        def __init__(self):
+            self.group = GuildConfig()
+            self.channels = {}
+
+        def guild(self, guild):
+            return self.group
+
+        async def all_channels(self):
+            return self.channels
+
+    class Destination:
+        def __init__(self, guild):
+            self.id = 999
+            self.guild = guild
+            self.overwrites = {}
+            self.edits = []
+
+        async def edit(self, **kwargs):
+            self.edits.append(kwargs)
+
+    monkeypatch.setattr(discord, "TextChannel", Destination)
+    guild = FakeGuild()
+    destination = Destination(guild)
+    guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
+    bot = SimpleNamespace(get_guild=lambda guild_id: guild if guild_id == guild.id else None)
+    cog = object.__new__(RoomAnnounce)
+    cog.bot = bot
+    cog.config = Config()
+    cog._destination_locks = {}
+    cog._visibility_tasks = {}
+
+    async def run_check():
+        cog._schedule_destination_visibility(guild, destination.id, delay=0.01)
+        cog._schedule_destination_visibility(guild, destination.id, delay=0.02)
+        cog.config.channels["123"] = {
+            "public_channel_id": 999,
+            "public_message_id": 777,
+        }
+        await asyncio.sleep(0.04)
+
+    asyncio.run(run_check())
+    assert destination.edits == []
+    assert cog._visibility_tasks == {}

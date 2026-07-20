@@ -133,6 +133,7 @@ SteamGridDB as an optional artwork fallback.
 - `/roomannounce channels` — List Join-to-Create channels and their effective announcement destinations.
 - `/roomannounce autoannounce <enabled>` — Toggle automatic publishing for Roomer-created rooms (disabled by default).
 - `/roomannounce autotag <enabled>` — Toggle automatic role tagging (disabled by default).
+- `/roomannounce autohide <enabled>` — Hide empty announcement destinations and reveal them before a new post (disabled by default).
 - `/roomannounce activehours set <timezone> <start> <end> [weekdays]` — Schedule hours when automatic role tags are allowed.
 - `/roomannounce activehours enable|force|clear|settings` — Toggle, enforce, clear, or inspect active hours.
 - `/roomannounce rsvp enable|names|settings` — Configure persistent announcement RSVP controls.
@@ -168,6 +169,8 @@ SteamGridDB artwork requires its own API key:
 - Active hours suppress automatic role pings without stopping informational announcement updates; forced hours also block manual pings.
 - Active-hour weekdays are comma-separated names such as `Mon,Wed,Fri`; overnight windows use the weekday on which the window starts.
 - Optional RSVP buttons track Join, Maybe, and Not Coming responses and notify room owners at configured participation milestones.
+- Optional destination auto-hide preserves the channel's original `@everyone` visibility, waits briefly after removals, and hides it only when no Roomer or monitored announcement remains. The bot needs **Manage Roles** in each destination.
+- Channels already hidden by an administrator are not claimed or automatically revealed by RoomAnnounce.
 - RSVP summaries start on their own embed row, and a separate **Connect** link opens the advertised room in Discord.
 - Hiding a Roomer channel suspends its public post and role pings while retaining RSVP data; unhiding restores the same announcement session.
 - Locked rooms remain advertised, but show a disabled **Locked** control and cannot send new role pings until unlocked.
