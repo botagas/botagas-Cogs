@@ -94,6 +94,7 @@ def test_activehours_and_rsvp_subcommands_are_registered():
         "monitor",
         "autotag",
         "autohide",
+        "autohiderole",
         "settings",
     } <= commands.keys()
     assert {command.name for command in commands["activehours"].commands} == {
@@ -570,7 +571,7 @@ def test_monitored_refresh_posts_persists_and_removes_stale_games(monkeypatch):
     assert record["announcements"] == {}
 
 
-def test_destination_visibility_preserves_overwrites_and_restores_when_active(monkeypatch):
+def test_destination_visibility_uses_configured_role_and_restores_when_active(monkeypatch):
     class ConfigValue:
         def __init__(self, value):
             self.value = value
@@ -599,10 +600,12 @@ def test_destination_visibility_preserves_overwrites_and_restores_when_active(mo
             self.hidden_announcement_channels = ConfigValue({})
             self.monitored_channels = ConfigValue({})
             self.announcement_channel_id = 999
+            self.auto_hide_role_id = 321
 
         async def all(self):
             return {
                 "auto_hide_empty_channels": self.auto_hide_empty_channels.value,
+                "auto_hide_role_id": self.auto_hide_role_id,
                 "hidden_announcement_channels": self.hidden_announcement_channels.value,
                 "monitored_channels": self.monitored_channels.value,
                 "announcement_channel_id": self.announcement_channel_id,
@@ -621,11 +624,14 @@ def test_destination_visibility_preserves_overwrites_and_restores_when_active(mo
             return self.channels
 
     class Destination:
-        def __init__(self, guild):
+        def __init__(self, guild, visibility_role):
             self.id = 999
             self.guild = guild
             self.overwrites = {
-                guild.default_role: discord.PermissionOverwrite(send_messages=False)
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                visibility_role: discord.PermissionOverwrite(
+                    view_channel=True, send_messages=False
+                ),
             }
             self.edits = []
 
@@ -635,18 +641,21 @@ def test_destination_visibility_preserves_overwrites_and_restores_when_active(mo
 
     monkeypatch.setattr(discord, "TextChannel", Destination)
     guild = FakeGuild()
-    destination = Destination(guild)
+    visibility_role = discord.Object(id=321)
+    guild.get_role = lambda role_id: visibility_role if role_id == 321 else None
+    destination = Destination(guild, visibility_role)
     guild.get_channel = lambda channel_id: destination if channel_id == 999 else None
     cog = object.__new__(RoomAnnounce)
     cog.config = Config()
     cog._destination_locks = {}
 
     asyncio.run(cog._reconcile_destination_visibility(guild, destination.id))
-    overwrite = destination.overwrites[guild.default_role]
+    overwrite = destination.overwrites[visibility_role]
     assert overwrite.view_channel is False
     assert overwrite.send_messages is False
+    assert destination.overwrites[guild.default_role].view_channel is False
     assert cog.config.group.hidden_announcement_channels.value == {
-        "999": {"original_view_channel": None}
+        "999": {"role_id": 321, "original_view_channel": True}
     }
 
     cog.config.channels["123"] = {
@@ -654,9 +663,16 @@ def test_destination_visibility_preserves_overwrites_and_restores_when_active(mo
         "public_message_id": 777,
     }
     asyncio.run(cog._reconcile_destination_visibility(guild, destination.id))
-    overwrite = destination.overwrites[guild.default_role]
-    assert overwrite.view_channel is None
+    overwrite = destination.overwrites[visibility_role]
+    assert overwrite.view_channel is True
     assert overwrite.send_messages is False
+    assert cog.config.group.hidden_announcement_channels.value == {}
+
+    # Records created before configurable roles did not store role_id and must
+    # still restore the original @everyone overwrite.
+    cog.config.group.hidden_announcement_channels.value = {"999": {"original_view_channel": None}}
+    asyncio.run(cog._show_managed_destination(destination))
+    assert guild.default_role not in destination.overwrites
     assert cog.config.group.hidden_announcement_channels.value == {}
 
 
@@ -688,6 +704,7 @@ def test_destination_visibility_does_not_claim_admin_hidden_channel(monkeypatch)
         async def all(self):
             return {
                 "auto_hide_empty_channels": True,
+                "auto_hide_role_id": None,
                 "announcement_channel_id": 999,
                 "announcement_channels": {},
                 "monitored_channels": {},
@@ -754,6 +771,7 @@ def test_delayed_visibility_check_sees_new_announcement(monkeypatch):
         async def all(self):
             return {
                 "auto_hide_empty_channels": True,
+                "auto_hide_role_id": None,
                 "announcement_channel_id": 999,
                 "announcement_channels": {},
                 "monitored_channels": {},

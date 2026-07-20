@@ -90,6 +90,7 @@ class RoomAnnounce(commands.Cog):
             rsvp_show_names=False,
             monitored_channels={},
             auto_hide_empty_channels=False,
+            auto_hide_role_id=None,
             hidden_announcement_channels={},
         )
         channel_defaults = default_room_state(0)
@@ -269,13 +270,19 @@ class RoomAnnounce(commands.Cog):
         record = hidden_channels.get(str(channel.id))
         if record is None:
             return
+        role_id = record.get("role_id")
+        role = channel.guild.get_role(role_id) if role_id else channel.guild.default_role
+        if role is None:
+            async with group.hidden_announcement_channels() as current:
+                current.pop(str(channel.id), None)
+            return
         overwrites = channel.overwrites
-        overwrite = overwrites.get(channel.guild.default_role, discord.PermissionOverwrite())
+        overwrite = overwrites.get(role, discord.PermissionOverwrite())
         overwrite.view_channel = record.get("original_view_channel")
         if overwrite.is_empty():
-            overwrites.pop(channel.guild.default_role, None)
+            overwrites.pop(role, None)
         else:
-            overwrites[channel.guild.default_role] = overwrite
+            overwrites[role] = overwrite
         await channel.edit(
             overwrites=overwrites,
             reason="RoomAnnounce is making an active announcement channel visible.",
@@ -283,20 +290,38 @@ class RoomAnnounce(commands.Cog):
         async with group.hidden_announcement_channels() as current:
             current.pop(str(channel.id), None)
 
-    async def _hide_managed_destination(self, channel: discord.TextChannel) -> None:
+    async def _hide_managed_destination(
+        self, channel: discord.TextChannel, settings: Dict[str, Any]
+    ) -> None:
         group = self.config.guild(channel.guild)
         hidden_channels = await group.hidden_announcement_channels()
         record = hidden_channels.get(str(channel.id))
+        configured_role_id = settings.get("auto_hide_role_id")
+        role = (
+            channel.guild.get_role(configured_role_id)
+            if configured_role_id
+            else channel.guild.default_role
+        )
+        if role is None:
+            log.warning(
+                "Could not hide RoomAnnounce destination %s because visibility role %s no longer exists",
+                channel.id,
+                configured_role_id,
+            )
+            return
         overwrites = channel.overwrites
-        overwrite = overwrites.get(channel.guild.default_role, discord.PermissionOverwrite())
+        overwrite = overwrites.get(role, discord.PermissionOverwrite())
         if overwrite.view_channel is False:
             return
         if record is None:
-            record = {"original_view_channel": overwrite.view_channel}
+            record = {
+                "role_id": configured_role_id,
+                "original_view_channel": overwrite.view_channel,
+            }
             async with group.hidden_announcement_channels() as current:
                 current[str(channel.id)] = record
         overwrite.view_channel = False
-        overwrites[channel.guild.default_role] = overwrite
+        overwrites[role] = overwrite
         try:
             await channel.edit(
                 overwrites=overwrites,
@@ -324,7 +349,7 @@ class RoomAnnounce(commands.Cog):
             )
             try:
                 if enabled and configured and not has_announcements:
-                    await self._hide_managed_destination(channel)
+                    await self._hide_managed_destination(channel, settings)
                 else:
                     await self._show_managed_destination(channel)
             except (discord.Forbidden, discord.HTTPException) as exc:
@@ -2081,6 +2106,19 @@ class RoomAnnounce(commands.Cog):
             )
         ]
         if enabled:
+            visibility_role_id = settings.get("auto_hide_role_id")
+            visibility_role = (
+                interaction.guild.get_role(visibility_role_id)
+                if visibility_role_id
+                else interaction.guild.default_role
+            )
+            if visibility_role is None:
+                return await interaction.followup.send(
+                    "❌ The configured auto-hide visibility role no longer exists. Use "
+                    "`/roomannounce autohiderole` to select a new role or restore the "
+                    "@everyone default.",
+                    ephemeral=True,
+                )
             unavailable = [
                 channel
                 for channel in destinations
@@ -2111,6 +2149,75 @@ class RoomAnnounce(commands.Cog):
         await interaction.followup.send(
             f"✅ Automatic hiding of empty announcement channels "
             f"{'enabled' if enabled else 'disabled'}. {detail}",
+            ephemeral=True,
+        )
+
+    @roomannounce_group.command(
+        name="autohiderole",
+        description="Choose which role is hidden and revealed with announcement destinations.",
+    )
+    @app_commands.describe(role="Visibility role; omit to use @everyone")
+    @app_commands.default_permissions(administrator=True)
+    async def autohiderole(
+        self,
+        interaction: discord.Interaction,
+        role: Optional[discord.Role] = None,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        guild = interaction.guild
+        group = self.config.guild(guild)
+        settings = await group.all()
+        if role == guild.default_role:
+            role = None
+        if role is not None and role >= guild.me.top_role:
+            return await interaction.followup.send(
+                "❌ The visibility role must be below the bot's highest role.",
+                ephemeral=True,
+            )
+        destination_ids = self._configured_destination_ids(settings)
+        for channel_id in settings.get("hidden_announcement_channels") or {}:
+            with contextlib.suppress(TypeError, ValueError):
+                destination_ids.add(int(channel_id))
+        destinations = [
+            channel
+            for destination_id in destination_ids
+            if isinstance(
+                channel := guild.get_channel(destination_id),
+                discord.TextChannel,
+            )
+        ]
+        if settings.get("auto_hide_empty_channels"):
+            unavailable = [
+                channel
+                for channel in destinations
+                if not channel.permissions_for(guild.me).manage_roles
+            ]
+            if unavailable:
+                labels = ", ".join(channel.mention for channel in unavailable)
+                return await interaction.followup.send(
+                    "❌ The bot needs Manage Roles in every configured destination before "
+                    f"the visibility role can be changed. Missing in: {labels}",
+                    ephemeral=True,
+                )
+        pending_tasks = []
+        for destination in destinations:
+            task = self._visibility_tasks.pop((guild.id, destination.id), None)
+            if task:
+                task.cancel()
+                pending_tasks.append(task)
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        for destination in destinations:
+            async with self._destination_lock(guild.id, destination.id):
+                await self._show_managed_destination(destination)
+        await group.auto_hide_role_id.set(role.id if role else None)
+        if settings.get("auto_hide_empty_channels"):
+            for destination in destinations:
+                self._schedule_destination_visibility(guild, destination.id)
+        await interaction.followup.send(
+            f"✅ Auto-hide visibility will now be changed for "
+            f"{role.mention if role else guild.default_role.mention}. Existing managed "
+            "overwrites were restored before applying the new setting.",
             ephemeral=True,
         )
 
@@ -2406,6 +2513,12 @@ class RoomAnnounce(commands.Cog):
         steamgriddb_tokens = await self.bot.get_shared_api_tokens("steamgriddb")
         channel = interaction.guild.get_channel(data["announcement_channel_id"])
         roles = [interaction.guild.get_role(role_id) for role_id in data["allowed_role_ids"]]
+        auto_hide_role_id = data.get("auto_hide_role_id")
+        auto_hide_role = (
+            interaction.guild.get_role(auto_hide_role_id)
+            if auto_hide_role_id
+            else interaction.guild.default_role
+        )
         embed = discord.Embed(title="RoomAnnounce Settings", color=discord.Color.blurple())
         embed.add_field(
             name="Default channel", value=channel.mention if channel else "Not configured"
@@ -2423,6 +2536,14 @@ class RoomAnnounce(commands.Cog):
         embed.add_field(
             name="Hide empty destinations",
             value=str(data.get("auto_hide_empty_channels", False)),
+        )
+        embed.add_field(
+            name="Auto-hide visibility role",
+            value=(
+                auto_hide_role.mention
+                if auto_hide_role
+                else f"Deleted role (`{auto_hide_role_id}`)"
+            ),
         )
         schedule_enabled = bool(data.get("active_hours_enabled"))
         schedule_active = active_hours_are_active(data) if schedule_enabled else True
